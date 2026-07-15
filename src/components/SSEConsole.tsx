@@ -1,0 +1,38 @@
+import { useSSE } from "../hooks/useSSE";
+import { StatusBadge } from "./StatusBadge";
+
+interface Props {
+  jobId: number | null;
+  onDone?: () => void;
+}
+
+export function SSEConsole({ jobId, onDone }: Props) {
+  const { events, done } = useSSE(jobId);
+
+  if (done && onDone) {
+    setTimeout(onDone, 500);
+  }
+
+  if (!jobId) return null;
+
+  return (
+    <div className="bg-base-300 rounded-box p-3 mt-3 max-h-48 overflow-y-auto font-mono text-xs">
+      {events.length === 0 && !done && (
+        <span className="loading loading-dots loading-xs" />
+      )}
+      {events.map((e, i) => (
+        <div key={i} className="flex gap-2 items-start py-0.5">
+          <StatusBadge status={e.status} size="xs" />
+          <span className="opacity-60">[{e.step}]</span>
+          <span>{e.message}</span>
+          {e.progress != null && (
+            <span className="ml-auto opacity-50">
+              {Math.round(e.progress * 100)}%
+            </span>
+          )}
+        </div>
+      ))}
+      {done && <div className="text-success mt-1">✓ 任务完成</div>}
+    </div>
+  );
+}
