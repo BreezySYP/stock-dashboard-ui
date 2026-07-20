@@ -9,12 +9,12 @@ export default defineConfig({
     proxy: {
       // ← 精确路径放前面，否则 /api 会把所有请求都拦截
       "/api/etl": {
-        target: "http://host.docker.internal:8012",
+        target: "http://host.docker.internal:8011",
         changeOrigin: true,
         rewrite: (path) => path, // 保持路径不变
       },
       "/api/ai": {
-        target: "http://host.docker.internal:8011",
+        target: "http://host.docker.internal:8012",
         changeOrigin: true,
       },
       "/api": {
