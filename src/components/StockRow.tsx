@@ -17,7 +17,7 @@ interface Props {
 export function StockRow({ stock, steps, onRefresh }: Props) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
-  const [activeJobId, setActiveJobId] = useState<number | null>(null);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
 
   const visibleSteps = steps.filter((s) => PER_STOCK_STEPS.includes(s.step));

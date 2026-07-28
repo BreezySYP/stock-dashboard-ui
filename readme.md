@@ -16,7 +16,7 @@ A股数据 ETL 管理前端，基于 Vite + React + TypeScript + Tailwind CSS + 
 
 ```bash
 npm install
-npm run dev        # http://localhost:3000
+npm run dev        # http://localhost:3010
 ```
 
 ## 生产构建

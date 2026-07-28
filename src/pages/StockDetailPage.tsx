@@ -26,7 +26,7 @@ export function StockDetailPage() {
   const [detail, setDetail] = useState<StockDetail | null>(null);
   const [steps, setSteps] = useState<StepMeta[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeJob, setActiveJob] = useState<number | null>(null);
+  const [activeJob, setActiveJob] = useState<string | null>(null);
   const [trigLoading, setTrigLoading] = useState<string | null>(null);
   const [tab, setTab] = useState<"ohlc" | "news" | "financial" | "logs">(
     "ohlc",
@@ -62,14 +62,6 @@ export function StockDetailPage() {
       setTrigLoading(null);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-base-100 flex items-center justify-center">
-        <span className="loading loading-spinner loading-lg" />
-      </div>
-    );
-  }
 
   if (!detail) {
     return (

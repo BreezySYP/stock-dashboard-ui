@@ -1,17 +1,21 @@
+import { useEffect } from "react";
 import { useSSE } from "../hooks/useSSE";
 import { StatusBadge } from "./StatusBadge";
 
 interface Props {
-  jobId: number | null;
+  jobId: string | null;
   onDone?: () => void;
 }
 
 export function SSEConsole({ jobId, onDone }: Props) {
   const { events, done } = useSSE(jobId);
 
-  if (done && onDone) {
-    setTimeout(onDone, 500);
-  }
+  useEffect(() => {
+    if (done && onDone) {
+      const timer = setTimeout(onDone, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [done]);
 
   if (!jobId) return null;
 

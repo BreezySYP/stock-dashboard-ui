@@ -19,6 +19,7 @@ export function Chat() {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [thread_id] = useState("qa_default");
+  const [job_id, setJob_id] = useState("ax8rab");
   const navigate = useNavigate();
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -31,12 +32,12 @@ export function Chat() {
   async function sse(): Promise<void> {
     return new Promise((resolve) => {
       setProgress([]);
-      const es = new EventSource(`/api/ai/qa/stream/${thread_id}`);
+
+      const es = new EventSource(`/api/ai/qa/stream/${job_id}`);
 
       es.onmessage = (e) => {
         const data: ChatProgress = JSON.parse(e.data);
-
-        if (data.done) {
+        if (!!data.done) {
           es.close();
           // 把最终 message 加入对话历史
           setMessages((prev) => [
@@ -73,7 +74,7 @@ export function Chat() {
 
     // 调 API 同时开 SSE
     try {
-      await Promise.all([agentApi.ask(thread_id, userMsg), sse()]);
+      await Promise.all([agentApi.ask(thread_id, job_id, userMsg), sse()]);
     } catch (e) {
       console.error(e);
       setLoading(false);

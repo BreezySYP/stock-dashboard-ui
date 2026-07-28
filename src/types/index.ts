@@ -95,7 +95,7 @@ export interface JobLog {
 }
 
 export interface TriggerResponse {
-  job_ids: number[];
+  job_ids: string[];
   message: string;
 }
 

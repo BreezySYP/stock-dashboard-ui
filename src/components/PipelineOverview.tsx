@@ -8,7 +8,7 @@ import type { Summary } from "../types";
 export function PipelineOverview() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeJobIds, setActiveJobIds] = useState<number[]>([]);
+  const [activeJobIds, setActiveJobIds] = useState<string[]>([]);
   const [triggering, setTriggering] = useState(false);
 
   const fetchSummary = async () => {
