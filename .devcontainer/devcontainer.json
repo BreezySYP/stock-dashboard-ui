@@ -22,7 +22,7 @@
       }
     }
   },
-  "postCreateCommand": "npm install",
+  "postCreateCommand": "npm install && sh .devcontainer/setup-codex.sh",
   "postStartCommand": "npm run dev",
   "runArgs": ["--add-host=host.docker.internal:host-gateway"],
   "forwardPorts": [3010],

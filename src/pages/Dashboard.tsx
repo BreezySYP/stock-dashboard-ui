@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { stocksApi } from "../api/stocks";
 import { etlApi } from "../api/etl";
 import { StockRow } from "../components/StockRow";
@@ -10,6 +11,7 @@ import { Chat } from "../components/Chat";
 type Tab = "chat" | "stocks" | "pipeline" | "logs";
 
 export function Dashboard() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("stocks");
   const [stocks, setStocks] = useState<StockSummary[]>([]);
   const [steps, setSteps] = useState<StepMeta[]>([]);
@@ -57,6 +59,13 @@ export function Dashboard() {
           </span>
         </div>
         <div className="flex-none">
+          <button
+            type="button"
+            className="btn btn-sm btn-ghost mr-2"
+            onClick={() => navigate("/memories")}
+          >
+            🧠 记忆
+          </button>
           <div className="tabs tabs-boxed bg-base-300">
             {(["chat", "stocks", "pipeline", "logs"] as Tab[]).map((t) => (
               <button

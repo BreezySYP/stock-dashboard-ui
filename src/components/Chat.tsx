@@ -19,7 +19,7 @@ export function Chat() {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [thread_id] = useState("qa_default");
-  const [job_id, setJob_id] = useState("ax8rab");
+  const [job_id, setJob_id] = useState(crypto.randomUUID());
   const navigate = useNavigate();
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);

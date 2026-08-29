@@ -1,0 +1,18 @@
+model = "deepseek-v4-flash"
+model_provider = "deepseek"
+preferred_auth_method = "apikey"
+forced_login_method = "api"
+model_reasoning_effort = "high"
+model_catalog_json = "/workspace/.codex/models.json"
+personality = "pragmatic"
+
+sandbox_mode = "danger-full-access"
+approval_policy = "on-request"
+
+[projects."/workspace"]
+trust_level = "trusted"
+
+[model_providers.deepseek]
+name = "deepseek"
+base_url = "https://api.deepseek.com/"
+wire_api = "responses"

@@ -152,3 +152,26 @@ export interface ChatStartResponse {
   thread_id: string;
   message: string;
 }
+
+// ── Memory ───────────────────────────────────────────────
+
+export interface MemoryItem {
+  id: string;
+  user_id: string;
+  namespace: string;
+  memory_type: string;
+  content: string;
+  content_truncated?: boolean;
+  importance: number | null;
+  confidence: number | null;
+  status: string;
+  source: string;
+  created_at: string | null;
+  updated_at: string | null;
+  expires_at: string | null;
+}
+
+export interface MemoryListResponse {
+  total: number;
+  items: MemoryItem[];
+}
