@@ -175,3 +175,40 @@ export interface MemoryListResponse {
   total: number;
   items: MemoryItem[];
 }
+
+// ── Eval ────────────────────────────────────────────────
+
+export interface EvalDryRunPayload {
+  answer: string;
+  question: string;
+  rag_context: string[];
+  push_langsmith: boolean;
+  include_claim_details: boolean;
+}
+
+export interface EvalScores {
+  faithfulness: number;
+  answer_relevancy: number;
+  profile_recall: number;
+  profile_precision: number;
+  citation_recall: number;
+  citation_precision: number;
+  timestamp: string;
+  question: string;
+  claim_details?: unknown;
+  faithfulness_claims?: FaithfulnessClaim[];
+}
+
+export interface FaithfulnessClaim {
+  claim: string;
+  sentences: string[];
+  result: string;
+}
+
+// 兼容两种返回结构：直接返回 scores 字典，或 { scores: {...}, claim_details: [...] }
+export interface EvalDryRunResponse {
+  scores?: EvalScores;
+  claim_details?: unknown;
+  faithfulness_claims?: FaithfulnessClaim[];
+  [key: string]: unknown;
+}

@@ -114,7 +114,13 @@ export function Chat() {
           <span className="font-mono font-bold">AI 投资顾问</span>
           <span className="badge badge-outline badge-sm">{thread_id}</span>
         </div>
-        <div className="flex-none">
+        <div className="flex-none flex items-center gap-2">
+          <button
+            className="btn btn-xs btn-ghost"
+            onClick={() => navigate(`/chat/${thread_id}/eval`)}
+          >
+            🧪 评测
+          </button>
           <button
             className="btn btn-xs btn-ghost opacity-50"
             onClick={() => setMessages([])}
