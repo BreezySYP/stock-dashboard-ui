@@ -50,9 +50,15 @@ export function Dashboard() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
-    <div className="min-h-screen bg-base-100">
+    <div
+      className={
+        tab === "chat"
+          ? "h-screen flex flex-col overflow-hidden bg-base-100"
+          : "min-h-screen bg-base-100"
+      }
+    >
       {/* ── Navbar ── */}
-      <nav className="navbar bg-base-200 border-b border-base-300 px-6">
+      <nav className="navbar bg-base-200 border-b border-base-300 px-6 shrink-0">
         <div className="flex-1">
           <span className="text-lg font-bold font-mono tracking-tight">
             📈 Stock ETL Dashboard
@@ -83,9 +89,14 @@ export function Dashboard() {
         </div>
       </nav>
 
-      <div className="p-6">
-        {/* ── Stocks tab ── */}
-        {tab === "stocks" && (
+      {tab === "chat" ? (
+        <div className="flex-1 min-h-0">
+          <Chat />
+        </div>
+      ) : (
+        <div className="p-6">
+          {/* ── Stocks tab ── */}
+          {tab === "stocks" && (
           <div className="space-y-4">
             {/* Search + stats */}
             <div className="flex items-center gap-3">
@@ -196,17 +207,15 @@ export function Dashboard() {
               </div>
             )}
           </div>
-        )}
+          )}
 
-        {/* ── Pipeline tab ── */}
-        {tab === "pipeline" && <PipelineOverview />}
+          {/* ── Pipeline tab ── */}
+          {tab === "pipeline" && <PipelineOverview />}
 
-        {/* ── Pipeline tab ── */}
-        {tab === "chat" && <Chat />}
-
-        {/* ── Logs tab ── */}
-        {tab === "logs" && <JobLogs />}
-      </div>
+          {/* ── Logs tab ── */}
+          {tab === "logs" && <JobLogs />}
+        </div>
+      )}
     </div>
   );
 }

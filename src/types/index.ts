@@ -153,6 +153,24 @@ export interface ChatStartResponse {
   message: string;
 }
 
+// ── Conversation History ────────────────────────────────
+
+export interface ConversationMessage {
+  role: string;
+  type?: string;
+  content: unknown;
+  created_at?: string | null;
+  timestamp?: string | null;
+}
+
+// 兼容数组或 { items / messages / data } 包装结构
+export interface ConversationResponse {
+  items?: ConversationMessage[];
+  messages?: ConversationMessage[];
+  data?: ConversationMessage[];
+  [key: string]: unknown;
+}
+
 // ── Memory ───────────────────────────────────────────────
 
 export interface MemoryItem {

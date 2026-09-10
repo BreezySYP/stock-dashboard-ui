@@ -1,4 +1,4 @@
-import { ChatProgress } from "@/types";
+import { ChatProgress, ConversationMessage, ConversationResponse } from "@/types";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { agentApi } from "../api/agent";
@@ -6,11 +6,53 @@ import ReactMarkdown from "react-markdown";
 
 // npm install react-markdown
 
+const MAX_HISTORY = 30; // 最多展示的历史条数
+const MAX_PREVIEW_LEN = 300; // 单条内容预览长度
+
 interface Message {
   role: "user" | "assistant";
   content: string;
   progress?: ChatProgress[];
   done?: boolean;
+  expanded?: boolean;
+}
+
+function toMessageContent(raw: unknown): string {
+  if (typeof raw === "string") return raw;
+  try {
+    return JSON.stringify(raw);
+  } catch {
+    return String(raw);
+  }
+}
+
+// 超长内容默认截断，展开后显示全文
+function previewContent(content: string, expanded?: boolean): string {
+  if (expanded || content.length <= MAX_PREVIEW_LEN) return content;
+  return content.slice(0, MAX_PREVIEW_LEN) + "\n……";
+}
+
+// report 内容：优先提取 markdown_report 字段，没有就直接用 content 字符串
+function extractReportContent(raw: unknown): string {
+  if (raw !== null && typeof raw === "object") {
+    const md = (raw as Record<string, unknown>).markdown_report;
+    if (typeof md === "string" && md.trim()) return md;
+    return toMessageContent(raw);
+  }
+
+  const str = typeof raw === "string" ? raw : toMessageContent(raw);
+  // 匹配 "{'markdown_report': '...', ...}" 中的 markdown_report 值
+  const m = str.match(/'markdown_report':\s*'((?:\\.|[^'])*)'/);
+  if (m) {
+    return m[1]
+      .replace(/\\n/g, "\n")
+      .replace(/\\t/g, "\t")
+      .replace(/\\r/g, "\r")
+      .replace(/\\'/g, "'")
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, "\\");
+  }
+  return str;
 }
 
 export function Chat() {
@@ -23,10 +65,57 @@ export function Chat() {
   const navigate = useNavigate();
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const msgElsRef = useRef<Map<number, HTMLDivElement>>(new Map());
+  const lastMsgCountRef = useRef(0);
 
-  // 自动滚到底部
+  // 加载历史对话（只展示 user_question / report，内容超长时截断）
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    let cancelled = false;
+    agentApi
+      .conversation(thread_id)
+      .then((data) => {
+        if (cancelled) return;
+        const rawItems: unknown = Array.isArray(data)
+          ? data
+          : (data as ConversationResponse)?.items ??
+            (data as ConversationResponse)?.messages ??
+            (data as ConversationResponse)?.data ??
+            [];
+        if (!Array.isArray(rawItems)) return;
+
+        const history: Message[] = (rawItems as ConversationMessage[])
+          .filter((m) => m && (m.type === "user_question" || m.type === "report"))
+          .slice(-MAX_HISTORY)
+          .map((m) => ({
+            role:
+              m.role === "agent" || m.role === "assistant"
+                ? "assistant"
+                : "user",
+            content:
+              m.type === "report"
+                ? extractReportContent(m.content)
+                : toMessageContent(m.content),
+          }));
+
+        // 如果第一条是 AI 回复（接口可能按时间倒序），翻转成正常顺序
+        if (history.length > 1 && history[0].role === "assistant") {
+          history.reverse();
+        }
+
+        setMessages((prev) => (prev.length === 0 ? history : [...history, ...prev]));
+      })
+      .catch((e) => console.error("加载历史对话失败", e));
+    return () => {
+      cancelled = true;
+    };
+  }, [thread_id]);
+
+  // 自动滚到底部：仅在新消息追加 / 进度更新时滚动，避免展开全文时跳到底部
+  useEffect(() => {
+    if (messages.length !== lastMsgCountRef.current || progress.length > 0) {
+      lastMsgCountRef.current = messages.length;
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages, progress]);
 
   async function sse(): Promise<void> {
@@ -89,6 +178,16 @@ export function Chat() {
     }
   }
 
+  function toggleExpand(i: number) {
+    setMessages((prev) =>
+      prev.map((m, idx) => (idx === i ? { ...m, expanded: !m.expanded } : m)),
+    );
+    // 展开后保持当前消息气泡位置，不跳到底部
+    setTimeout(() => {
+      msgElsRef.current.get(i)?.scrollIntoView({ block: "nearest" });
+    }, 0);
+  }
+
   // 节点图标
   const nodeIcon: Record<string, string> = {
     supervisor: "🧭",
@@ -101,7 +200,7 @@ export function Chat() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-base-100">
+    <div className="flex flex-col h-full min-h-0 bg-base-100">
       {/* ── Navbar ── */}
       <nav className="navbar bg-base-200 border-b border-base-300 px-4 shrink-0">
         <div className="flex-1 flex items-center gap-3">
@@ -131,7 +230,7 @@ export function Chat() {
       </nav>
 
       {/* ── Messages ── */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-6 space-y-6">
         {/* 空状态 */}
         {messages.length === 0 && !loading && (
           <div className="flex flex-col items-center justify-center h-full gap-4 opacity-40">
@@ -144,6 +243,10 @@ export function Chat() {
         {messages.map((msg, i) => (
           <div
             key={i}
+            ref={(el) => {
+              if (el) msgElsRef.current.set(i, el);
+              else msgElsRef.current.delete(i);
+            }}
             className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
             {/* AI 头像 */}
@@ -157,19 +260,33 @@ export function Chat() {
 
             {/* 消息气泡 */}
             <div
-              className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm ${
+              className={`max-w-[75%] min-w-0 break-words rounded-2xl px-4 py-3 text-sm ${
                 msg.role === "user"
                   ? "bg-primary text-primary-content rounded-br-sm"
                   : "bg-base-200 rounded-bl-sm"
               }`}
             >
-              {msg.role === "assistant" ? (
-                <div className="prose prose-sm max-w-none prose-invert">
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
-                </div>
-              ) : (
-                <p className="whitespace-pre-wrap">{msg.content}</p>
-              )}
+              <div className="min-w-0">
+                {msg.role === "assistant" ? (
+                  <div className="prose prose-sm max-w-none prose-invert overflow-x-auto">
+                    <ReactMarkdown>
+                      {previewContent(msg.content, msg.expanded)}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">
+                    {previewContent(msg.content, msg.expanded)}
+                  </p>
+                )}
+                {msg.content.length > MAX_PREVIEW_LEN && (
+                  <button
+                    className="btn btn-xs btn-ghost mt-2"
+                    onClick={() => toggleExpand(i)}
+                  >
+                    {msg.expanded ? "▲ 收起" : "▼ 展开全文"}
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* 用户头像 */}
