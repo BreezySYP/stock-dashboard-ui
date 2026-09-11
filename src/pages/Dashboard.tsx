@@ -7,6 +7,7 @@ import { PipelineOverview } from "../components/PipelineOverview";
 import { JobLogs } from "../components/JobLogs";
 import type { StockSummary, StepMeta } from "../types";
 import { Chat } from "../components/Chat";
+import { AuthMenu } from "../components/AuthMenu";
 
 type Tab = "chat" | "stocks" | "pipeline" | "logs";
 
@@ -64,13 +65,21 @@ export function Dashboard() {
             📈 Stock ETL Dashboard
           </span>
         </div>
-        <div className="flex-none">
+        <div className="flex-none flex items-center">
+          <AuthMenu />
           <button
             type="button"
             className="btn btn-sm btn-ghost mr-2"
             onClick={() => navigate("/memories")}
           >
             🧠 记忆
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm btn-ghost mr-2"
+            onClick={() => navigate("/settings/api-keys")}
+          >
+            🔑 API 密钥
           </button>
           <div className="tabs tabs-boxed bg-base-300">
             {(["chat", "stocks", "pipeline", "logs"] as Tab[]).map((t) => (

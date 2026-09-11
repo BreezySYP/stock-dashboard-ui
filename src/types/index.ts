@@ -194,6 +194,83 @@ export interface MemoryListResponse {
   items: MemoryItem[];
 }
 
+// ── Auth ────────────────────────────────────────────────
+
+// 后端返回结构较宽松（additionalProperties: true），字段做兼容处理。
+export interface AuthUser {
+  id?: string | number;
+  user_id?: string | number;
+  login?: string;
+  username?: string;
+  name?: string;
+  email?: string | null;
+  avatar_url?: string | null;
+  provider?: string;
+  role?: string;
+  is_admin?: boolean;
+  admin?: boolean;
+  created_at?: string | null;
+  [key: string]: unknown;
+}
+
+export interface AuthToken {
+  id: string;
+  name?: string | null;
+  prefix?: string | null;
+  token_prefix?: string | null;
+  last4?: string | null;
+  is_admin?: boolean;
+  admin?: boolean;
+  revoked?: boolean;
+  created_at?: string | null;
+  expires_at?: string | null;
+  last_used_at?: string | null;
+  [key: string]: unknown;
+}
+
+// 列表接口可能直接返回数组，或用 items / tokens / data 包装。
+export interface AuthTokenListResponse {
+  items?: AuthToken[];
+  tokens?: AuthToken[];
+  data?: AuthToken[];
+  total?: number;
+  [key: string]: unknown;
+}
+
+// 明文 secret 的字段名不确定，创建后做多字段兜底提取。
+export interface CreateTokenResponse {
+  id?: string;
+  name?: string | null;
+  token?: string;
+  secret?: string;
+  api_key?: string;
+  plaintext?: string;
+  key?: string;
+  expires_at?: string | null;
+  [key: string]: unknown;
+}
+
+export interface CreateTokenRequest {
+  name?: string;
+  expires_days?: number | null;
+  admin?: boolean;
+}
+
+export interface ServiceTokenResponse {
+  access_token?: string;
+  token?: string;
+  expires_in?: number;
+  expires_at?: string | null;
+  [key: string]: unknown;
+}
+
+export interface ClientTokenRequest {
+  client_id: string;
+  client_secret: string;
+  days?: number | null;
+  admin?: boolean;
+}
+
 // ── Eval ────────────────────────────────────────────────
 
 export interface EvalDryRunPayload {

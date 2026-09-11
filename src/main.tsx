@@ -1,13 +1,19 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import { RecoilRoot } from "recoil";
 import App from "./App";
+import { AuthProvider } from "./auth/AuthProvider";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <App />
+      <RecoilRoot>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </RecoilRoot>
     </BrowserRouter>
   </React.StrictMode>,
 );
