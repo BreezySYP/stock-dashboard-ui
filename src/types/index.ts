@@ -175,6 +175,7 @@ export interface ConversationResponse {
 
 export interface ChatThread {
   thread_id: string;
+  user_id?: string;
   title?: string | null;
   created_at?: string | null;
   updated_at?: string | null;

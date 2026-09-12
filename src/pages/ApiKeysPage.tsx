@@ -9,6 +9,7 @@ import {
 import { useAuth } from "../auth/useAuth";
 import { GithubLoginButton } from "../components/GithubLoginButton";
 import { AppShell } from "../layout/AppShell";
+import { apiErrorMessage } from "../lib/errors";
 import type { AuthToken, CreateTokenResponse } from "../types";
 
 const EXPIRY_OPTIONS = [
@@ -76,9 +77,7 @@ export function ApiKeysPage() {
       const data = await authApi.listTokens();
       setTokens(normalizeTokens(data));
     } catch (err) {
-      const detail = (err as { response?: { data?: { detail?: unknown } } })
-        ?.response?.data?.detail;
-      setListError(typeof detail === "string" ? detail : "加载 API 密钥失败");
+      setListError(apiErrorMessage(err, "加载 API 密钥失败"));
     } finally {
       setListLoading(false);
     }
@@ -103,11 +102,7 @@ export function ApiKeysPage() {
       setWantAdmin(false);
       await loadTokens();
     } catch (err) {
-      const detail = (err as { response?: { data?: { detail?: unknown } } })
-        ?.response?.data?.detail;
-      setCreateError(
-        typeof detail === "string" ? detail : "生成失败，请稍后重试",
-      );
+      setCreateError(apiErrorMessage(err, "生成失败，请稍后重试"));
     } finally {
       setCreating(false);
     }
@@ -124,9 +119,7 @@ export function ApiKeysPage() {
       await authApi.revokeToken(id);
       await loadTokens();
     } catch (err) {
-      const detail = (err as { response?: { data?: { detail?: unknown } } })
-        ?.response?.data?.detail;
-      window.alert(typeof detail === "string" ? detail : "撤销失败");
+      window.alert(apiErrorMessage(err, "撤销失败"));
     } finally {
       setRevoking(null);
     }

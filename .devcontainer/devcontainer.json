@@ -25,9 +25,9 @@
   "postCreateCommand": "npm install && sh .devcontainer/setup-codex.sh",
   "postStartCommand": "npm run dev",
   "runArgs": ["--add-host=host.docker.internal:host-gateway"],
-  "forwardPorts": [3010],
+  "forwardPorts": [3011],
   "portsAttributes": {
-    "3010": {
+    "3011": {
       "label": "Vite Dev Server",
       "onAutoForward": "openBrowser"
     }

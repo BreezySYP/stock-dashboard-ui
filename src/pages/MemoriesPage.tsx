@@ -6,6 +6,7 @@ import "dayjs/locale/zh-cn";
 import { memoryApi } from "../api/memory";
 import { useAuth } from "../auth/useAuth";
 import { AppShell } from "../layout/AppShell";
+import { apiErrorMessage } from "../lib/errors";
 import type { MemoryItem } from "../types";
 
 dayjs.extend(relativeTime);
@@ -129,12 +130,8 @@ export function MemoriesPage() {
       setRecords(Array.isArray(data?.items) ? data.items : []);
       setPage(1);
     } catch (e) {
-      const err = e as {
-        response?: { data?: { detail?: string } };
-        message?: string;
-      };
       setRecords([]);
-      setError(err?.response?.data?.detail ?? err?.message ?? "加载记忆失败");
+      setError(apiErrorMessage(e, "加载记忆失败"));
     } finally {
       setLoading(false);
     }

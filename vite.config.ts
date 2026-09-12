@@ -114,7 +114,10 @@ export default defineConfig({
         rewrite: (path) => path, // 保持路径不变
       },
       "/api/ai": {
-        target: "http://host.docker.internal:8013",
+        // 这里不能走 host.docker.internal：当前容器里它解析到
+        // 192.168.65.254，连接会被接受但永远不会返回响应。
+        // 172.17.0.1 是实际可达宿主机的 Docker bridge gateway。
+        target: "http://172.17.0.1:8013",
         changeOrigin: true,
       },
       "/api": {

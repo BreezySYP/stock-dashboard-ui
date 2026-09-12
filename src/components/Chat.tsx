@@ -1,8 +1,8 @@
-import { ChatProgress, ConversationMessage, ConversationResponse } from "@/types";
+import { ChatProgress } from "@/types";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
-import { agentApi } from "../api/agent";
+import { agentApi, normalizeConversation } from "../api/agent";
 import { useAuth } from "../auth/useAuth";
 import { SseHttpError, streamSSE } from "../lib/sse";
 
@@ -92,15 +92,10 @@ export function Chat({ threadId }: { threadId: string }) {
       .conversation(threadId)
       .then((data) => {
         if (cancelled) return;
-        const rawItems: unknown = Array.isArray(data)
-          ? data
-          : (data as ConversationResponse)?.items ??
-            (data as ConversationResponse)?.messages ??
-            (data as ConversationResponse)?.data ??
-            [];
-        if (!Array.isArray(rawItems)) return;
+        const rawItems = normalizeConversation(data);
+        if (rawItems.length === 0) return;
 
-        const history: Message[] = (rawItems as ConversationMessage[])
+        const history: Message[] = rawItems
           .filter((m) => m && (m.type === "user_question" || m.type === "report"))
           .slice(-MAX_HISTORY)
           .map((m) => ({

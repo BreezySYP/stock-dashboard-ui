@@ -71,9 +71,20 @@ docker build -t stock-dashboard-ui .
 权限判断来自 `/api/auth/me` 的 `is_admin` / `admin` / `role`；前端隐藏只是体验层，
 真正的授权必须由后端执行。
 
-会话列表依赖后端提供的 `GET /api/ai/threads`（返回 `{items:[{thread_id,title,updated_at}]}`）。
-聊天的实时进度走 `GET /api/ai/qa/stream/{job_id}`，前端用 fetch + ReadableStream 读取，
-以便带上 `Authorization: Bearer`（`EventSource` 无法自定义请求头）。
+### Agent 会话接口
+
+| 接口 | 说明 |
+| --- | --- |
+| `POST /api/ai/threads` | 新建会话，`thread_id` 由服务端生成 |
+| `GET /api/ai/threads?limit&offset&user_id` | 列出会话（按最近活跃排序，`user_id` 仅管理员可用） |
+| `PATCH /api/ai/threads/{thread_id}` | 重命名（body `{title}`） |
+| `DELETE /api/ai/threads/{thread_id}` | 删除会话 |
+| `GET /api/ai/threads/{thread_id}/conversation` | 获取对话内容 |
+| `POST /api/ai/qa?thread_id=...` | 触发回答（`thread_id` 同时在 query 和 body 里） |
+| `GET /api/ai/qa/stream/{job_id}` | SSE 进度流 |
+
+所有 `/api/ai/*` 接口都需要 `Authorization: Bearer`。聊天的实时进度用
+fetch + ReadableStream 读取 SSE，才能带上鉴权头（`EventSource` 无法自定义请求头）。
 
 ### 登录凭证传递方式
 
