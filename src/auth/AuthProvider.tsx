@@ -6,6 +6,8 @@ import { extractCodeFromUrl } from "./oauth";
 import {
   authErrorState,
   authLoadingState,
+  authLoginPendingState,
+  authPhaseState,
   authReloadState,
   authTokenState,
   authUserState,
@@ -35,7 +37,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setUser = useSetRecoilState(authUserState);
   const setLoading = useSetRecoilState(authLoadingState);
   const setError = useSetRecoilState(authErrorState);
+  const setPhase = useSetRecoilState(authPhaseState);
+  const setLoginPending = useSetRecoilState(authLoginPendingState);
   const bootstrapped = useRef(false);
+
+  // 从 GitHub 返回时页面可能从 bfcache 恢复，把按钮重新变成可点
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) setLoginPending(false);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, [setLoginPending]);
 
   // 1. 启动引导：sessionStorage 恢复 → 一次性 code 换 token
   useEffect(() => {
@@ -48,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let obtained = false;
     setLoading(true);
+    setPhase("exchanging");
     authApi
       .exchangeCode(code)
       .then((data) => {
@@ -62,9 +76,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         obtained = true;
+        setPhase("loading-user");
         setToken(fresh);
       })
-      .catch((err) => setError(errorMessage(err)))
+      .catch((err) => {
+        setError(errorMessage(err));
+        setPhase("idle");
+      })
       .finally(() => {
         // 拿到 token 时由下面的 /me 流程接管 loading
         if (!obtained) setLoading(false);
@@ -87,10 +105,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setError(null);
       setLoading(false);
+      setPhase("idle");
       return;
     }
     let cancelled = false;
     setLoading(true);
+    setPhase("loading-user");
     authApi
       .me()
       .then((u) => {
@@ -108,12 +128,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (status === 401) setToken(null);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setPhase("idle");
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [token, reload, setToken, setUser, setError, setLoading]);
+  }, [token, reload, setToken, setUser, setError, setLoading, setPhase]);
 
   return <>{children}</>;
 }

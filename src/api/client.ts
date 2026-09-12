@@ -7,6 +7,11 @@ export function setClientToken(token: string | null): void {
   clientToken = token;
 }
 
+/** SSE 等不走 axios 的请求需要自己取 token */
+export function getClientToken(): string | null {
+  return clientToken;
+}
+
 // ✅ 相对路径，走 vite proxy
 const client = axios.create({
   baseURL: "/api",

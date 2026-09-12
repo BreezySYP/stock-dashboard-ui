@@ -53,6 +53,20 @@ export const authReloadState = atom<number>({
   default: 0,
 });
 
+/** 是否已经点过登录、正在跳转 GitHub（用于禁用按钮，防止重复点击） */
+export const authLoginPendingState = atom<boolean>({
+  key: "auth/loginPending",
+  default: false,
+});
+
+export type AuthPhase = "idle" | "exchanging" | "loading-user";
+
+/** 登录流程当前进行到哪一步，用来给用户显示进度 */
+export const authPhaseState = atom<AuthPhase>({
+  key: "auth/phase",
+  default: "idle",
+});
+
 export function isAdminUser(user: AuthUser | null): boolean {
   if (!user) return false;
   if (typeof user.is_admin === "boolean") return user.is_admin;

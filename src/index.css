@@ -9,7 +9,18 @@ body,
 }
 
 body {
-  font-family: "JetBrains Mono", monospace;
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+/* 数字 / ID / 代码仍然用等宽字体 */
+.font-mono,
+code,
+pre,
+kbd,
+samp {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 .table tr:hover td {

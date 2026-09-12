@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { evalApi } from "../api/eval";
+import { AppShell } from "../layout/AppShell";
 import type {
   EvalDryRunPayload,
   EvalScores,
@@ -200,33 +201,32 @@ export function EvalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-base-100">
-      {/* ── Navbar ── */}
-      <nav className="navbar bg-base-200 border-b border-base-300 px-4 shrink-0">
-        <div className="flex-1 flex items-center gap-3">
+    <AppShell
+      title="AI 评测"
+      subtitle={`会话 ${thread_id}`}
+      actions={
+        <>
           <button
-            className="btn btn-sm btn-ghost"
-            onClick={() => navigate(`/chat/${thread_id}`)}
-          >
-            ←
-          </button>
-          <span className="font-mono font-bold">🧪 AI 评测</span>
-          <span className="badge badge-outline badge-sm">{thread_id}</span>
-        </div>
-        <div className="flex-none">
-          <button
-            className="btn btn-xs btn-ghost opacity-50"
+            type="button"
+            className="btn btn-xs btn-ghost text-base-content/50"
             onClick={reset}
           >
             清空
           </button>
-        </div>
-      </nav>
-
-      <div className="p-6 max-w-[1400px] mx-auto">
+          <button
+            type="button"
+            className="btn btn-xs btn-ghost"
+            onClick={() => navigate(`/chat/${thread_id}`)}
+          >
+            ← 返回会话
+          </button>
+        </>
+      }
+    >
+      <div className="mx-auto max-w-[1400px]">
         <div className="grid lg:grid-cols-2 gap-6 items-start">
           {/* ── 表单 ── */}
-          <div className="card bg-base-200 border border-base-300">
+          <div className="card bg-base-100 border border-base-300">
             <div className="card-body gap-4">
               <div className="form-control">
                 <label className="label">
@@ -332,7 +332,7 @@ export function EvalPage() {
           {/* ── 结果 ── */}
           <div className="space-y-4">
             {loading && (
-              <div className="card bg-base-200 border border-base-300">
+              <div className="card bg-base-100 border border-base-300">
                 <div className="card-body items-center justify-center gap-3 py-16">
                   <span className="loading loading-ring loading-lg" />
                   <p className="text-sm opacity-60">正在评测...</p>
@@ -347,7 +347,7 @@ export function EvalPage() {
             )}
 
             {!loading && !error && !result && (
-              <div className="card bg-base-200 border border-base-300 border-dashed">
+              <div className="card bg-base-100 border border-base-300 border-dashed">
                 <div className="card-body items-center justify-center text-center gap-2 py-16">
                   <span className="text-4xl">🧪</span>
                   <p className="text-sm opacity-60">
@@ -362,7 +362,7 @@ export function EvalPage() {
 
             {!loading && result && (
               <>
-                <div className="card bg-base-200 border border-base-300">
+                <div className="card bg-base-100 border border-base-300">
                   <div className="card-body gap-4">
                     <div className="flex items-center justify-between">
                       <h2 className="font-bold">评分结果</h2>
@@ -411,7 +411,7 @@ export function EvalPage() {
                 </div>
 
                 {faithfulnessClaims && faithfulnessClaims.length > 0 && (
-                  <details className="card bg-base-200 border border-base-300 overflow-hidden" open>
+                  <details className="card bg-base-100 border border-base-300 overflow-hidden" open>
                     <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold flex items-center gap-2">
                       📄 Faithfulness Claims
                       <span className="badge badge-sm badge-outline">
@@ -458,7 +458,7 @@ export function EvalPage() {
                 )}
 
                 {claimDetails != null && (
-                  <details className="card bg-base-200 border border-base-300 overflow-hidden">
+                  <details className="card bg-base-100 border border-base-300 overflow-hidden">
                     <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold flex items-center gap-2">
                       📋 Claim Details
                     </summary>
@@ -471,7 +471,7 @@ export function EvalPage() {
                 )}
 
                 {requestBody && (
-                  <details className="card bg-base-200 border border-base-300 overflow-hidden">
+                  <details className="card bg-base-100 border border-base-300 overflow-hidden">
                     <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold flex items-center gap-2">
                       📤 请求体
                     </summary>
@@ -487,6 +487,6 @@ export function EvalPage() {
           </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }

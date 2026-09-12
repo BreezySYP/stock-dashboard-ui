@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN" data-theme="night">
+<html lang="zh-CN" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
@@ -21,7 +21,24 @@
     </noscript>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- React 挂载前（例如 GitHub 回调用新页面打开时）先显示，挂载后会被替换 -->
+      <div
+        style="
+          display: flex;
+          height: 100vh;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          background: #f6f7f8;
+          color: #6b7280;
+          font-family: system-ui, -apple-system, 'PingFang SC', sans-serif;
+          font-size: 14px;
+        "
+      >
+        正在加载…
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

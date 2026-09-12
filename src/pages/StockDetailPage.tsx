@@ -16,6 +16,7 @@ import { etlApi } from "../api/etl";
 import { StatusBadge } from "../components/StatusBadge";
 import { SSEConsole } from "../components/SSEConsole";
 import { JobLogs } from "../components/JobLogs";
+import { AppShell } from "../layout/AppShell";
 import type { StockDetail, StepMeta } from "../types";
 
 const PER_STOCK_STEPS = ["history", "financial_statement", "profile", "news"];
@@ -65,14 +66,18 @@ export function StockDetailPage() {
 
   if (!detail) {
     return (
-      <div className="min-h-screen bg-base-100 flex items-center justify-center">
-        <div className="text-center space-y-3">
-          <p className="opacity-50">未找到股票数据</p>
-          <button className="btn btn-sm" onClick={() => navigate("/")}>
-            ← 返回
+      <AppShell title={code ?? "股票详情"}>
+        <div className="flex flex-col items-center gap-3 py-24">
+          <p className="text-base-content/50">未找到股票数据</p>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => navigate("/stocks")}
+          >
+            ← 返回股票列表
           </button>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
@@ -94,28 +99,13 @@ export function StockDetailPage() {
   const visibleSteps = steps.filter((s) => PER_STOCK_STEPS.includes(s.step));
 
   return (
-    <div className="min-h-screen bg-base-100">
-      {/* ── Navbar ── */}
-      <nav className="navbar bg-base-200 border-b border-base-300 px-6">
-        <div className="flex-1 flex items-center gap-3">
-          <button
-            className="btn btn-sm btn-ghost"
-            onClick={() => navigate("/")}
-          >
-            ← 返回
-          </button>
-          <span className="font-mono font-bold text-lg">{detail.code}</span>
-          <span className="text-base-content/60">{detail.name}</span>
-          {detail.profile?.industry && (
-            <span className="badge badge-outline badge-sm">
-              {detail.profile.industry}
-            </span>
-          )}
-        </div>
-        {/* Price */}
-        <div className="flex-none flex items-center gap-4 font-mono">
+    <AppShell
+      title={`${detail.code} ${detail.name}`}
+      subtitle={detail.profile?.industry ?? undefined}
+      actions={
+        <div className="flex items-center gap-3 font-mono">
           <span
-            className={`text-2xl font-bold ${isUp ? "text-success" : "text-error"}`}
+            className={`text-xl font-bold ${isUp ? "text-success" : "text-error"}`}
           >
             {latestClose.toFixed(2)}
           </span>
@@ -123,14 +113,21 @@ export function StockDetailPage() {
             {isUp ? "+" : ""}
             {pctChange}%
           </span>
+          <button
+            type="button"
+            className="btn btn-xs btn-ghost"
+            onClick={() => navigate("/stocks")}
+          >
+            ← 列表
+          </button>
         </div>
-      </nav>
-
-      <div className="p-6 space-y-6">
+      }
+    >
+      <div className="space-y-6">
         {/* ── Top grid: Profile + Download buttons ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Profile card */}
-          <div className="lg:col-span-2 card bg-base-200 shadow-sm">
+          <div className="lg:col-span-2 card bg-base-100 shadow-sm">
             <div className="card-body py-4 px-5">
               <h3 className="card-title text-sm">公司简介</h3>
               {detail.profile ? (
@@ -163,7 +160,7 @@ export function StockDetailPage() {
           </div>
 
           {/* Download buttons card */}
-          <div className="card bg-base-200 shadow-sm">
+          <div className="card bg-base-100 shadow-sm">
             <div className="card-body py-4 px-5 space-y-3">
               <h3 className="card-title text-sm">数据下载</h3>
               <div className="space-y-2">
@@ -243,7 +240,7 @@ export function StockDetailPage() {
           <div className="space-y-4">
             {/* Price chart */}
             {chartData.length > 0 ? (
-              <div className="card bg-base-200 shadow-sm">
+              <div className="card bg-base-100 shadow-sm">
                 <div className="card-body py-4 px-5">
                   <h3 className="card-title text-sm">收盘价走势</h3>
                   <ResponsiveContainer width="100%" height={220}>
@@ -290,7 +287,7 @@ export function StockDetailPage() {
             )}
 
             {/* OHLC table */}
-            <div className="overflow-x-auto rounded-box border border-base-300">
+            <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100">
               <table className="table table-xs table-pin-rows w-full">
                 <thead>
                   <tr className="bg-base-200">
@@ -353,7 +350,7 @@ export function StockDetailPage() {
             {detail.news.map((n) => (
               <div
                 key={n.id}
-                className="card bg-base-200 shadow-sm hover:bg-base-300 transition-colors"
+                className="card bg-base-100 shadow-sm hover:bg-base-200 transition-colors"
               >
                 <div className="card-body py-3 px-4">
                   <div className="flex items-start justify-between gap-4">
@@ -391,7 +388,7 @@ export function StockDetailPage() {
 
         {/* ── Financial tab ── */}
         {tab === "financial" && (
-          <div className="overflow-x-auto rounded-box border border-base-300">
+          <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100">
             <table className="table table-sm w-full">
               <thead>
                 <tr className="bg-base-200">
@@ -452,6 +449,6 @@ export function StockDetailPage() {
         {/* ── Logs tab ── */}
         {tab === "logs" && <JobLogs code={code} />}
       </div>
-    </div>
+    </AppShell>
   );
 }

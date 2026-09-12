@@ -8,6 +8,7 @@ import type {
   ClientTokenRequest,
   CreateTokenRequest,
   CreateTokenResponse,
+  CreatedTokenMeta,
   ServiceTokenResponse,
 } from "../types";
 
@@ -101,10 +102,45 @@ export function normalizeTokens(res: AuthTokenListResponse): AuthToken[] {
   return Array.isArray(wrapped) ? wrapped : [];
 }
 
-/** 创建接口只返回一次明文，字段名做兜底 */
+// 明文可能出现的字段名，按优先级排列
+const SECRET_KEYS = [
+  "access_token",
+  "plaintext",
+  "secret",
+  "api_key",
+  "key",
+  "token",
+];
+
+/**
+ * 创建接口只返回一次明文，字段名做兜底。
+ * 注意后端返回里 `token` 常常是元数据对象，只有字符串才算明文。
+ */
 export function extractSecret(res: CreateTokenResponse | null): string | null {
   if (!res) return null;
-  const candidate =
-    res.token ?? res.secret ?? res.api_key ?? res.plaintext ?? res.key;
-  return typeof candidate === "string" && candidate ? candidate : null;
+  if (typeof res === "string") return res || null;
+
+  const obj = res as Record<string, unknown>;
+  const scopes = [obj, obj.token, obj.data].filter(
+    (v): v is Record<string, unknown> => !!v && typeof v === "object",
+  );
+
+  for (const scope of scopes) {
+    for (const key of SECRET_KEYS) {
+      const value = scope[key];
+      if (typeof value === "string" && value) return value;
+    }
+  }
+  return null;
+}
+
+/** 创建响应里的元数据（用于展示前缀/有效期） */
+export function extractTokenMeta(
+  res: CreateTokenResponse | null,
+): CreatedTokenMeta | null {
+  if (!res || typeof res !== "object") return null;
+  const token = (res as CreateTokenResponse).token;
+  if (token && typeof token === "object") return token as CreatedTokenMeta;
+  if (res.id || res.token_prefix) return res as CreatedTokenMeta;
+  return null;
 }

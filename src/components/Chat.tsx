@@ -1,10 +1,10 @@
 import { ChatProgress, ConversationMessage, ConversationResponse } from "@/types";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { agentApi } from "../api/agent";
 import ReactMarkdown from "react-markdown";
-
-// npm install react-markdown
+import { agentApi } from "../api/agent";
+import { useAuth } from "../auth/useAuth";
+import { SseHttpError, streamSSE } from "../lib/sse";
 
 const MAX_HISTORY = 30; // 最多展示的历史条数
 const MAX_PREVIEW_LEN = 300; // 单条内容预览长度
@@ -55,24 +55,41 @@ function extractReportContent(raw: unknown): string {
   return str;
 }
 
-export function Chat() {
+const NODE_ICON: Record<string, string> = {
+  supervisor: "🧭",
+  profile: "👤",
+  fundamental: "📊",
+  technical: "📈",
+  news: "📰",
+  synthesizer: "🧠",
+  reflection: "🪞",
+};
+
+export function Chat({ threadId }: { threadId: string }) {
+  const { isAdmin, logout } = useAuth();
+  const navigate = useNavigate();
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [progress, setProgress] = useState<ChatProgress[]>([]);
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
-  const [thread_id] = useState("qa_default");
-  const [job_id, setJob_id] = useState(crypto.randomUUID());
-  const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
+
+  const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const msgElsRef = useRef<Map<number, HTMLDivElement>>(new Map());
   const lastMsgCountRef = useRef(0);
 
-  // 加载历史对话（只展示 user_question / report，内容超长时截断）
+  // 切换会话时重置并加载历史（只展示 user_question / report）
   useEffect(() => {
+    setMessages([]);
+    setProgress([]);
+    setError(null);
     let cancelled = false;
+
     agentApi
-      .conversation(thread_id)
+      .conversation(threadId)
       .then((data) => {
         if (cancelled) return;
         const rawItems: unknown = Array.isArray(data)
@@ -89,8 +106,8 @@ export function Chat() {
           .map((m) => ({
             role:
               m.role === "agent" || m.role === "assistant"
-                ? "assistant"
-                : "user",
+                ? ("assistant" as const)
+                : ("user" as const),
             content:
               m.type === "report"
                 ? extractReportContent(m.content)
@@ -101,14 +118,21 @@ export function Chat() {
         if (history.length > 1 && history[0].role === "assistant") {
           history.reverse();
         }
-
-        setMessages((prev) => (prev.length === 0 ? history : [...history, ...prev]));
+        setMessages(history);
       })
-      .catch((e) => console.error("加载历史对话失败", e));
+      .catch((e) => {
+        // 新会话还没有历史，404 属正常
+        const status = (e as { response?: { status?: number } })?.response?.status;
+        if (status !== 404) console.error("加载历史对话失败", e);
+      });
+
     return () => {
       cancelled = true;
     };
-  }, [thread_id]);
+  }, [threadId]);
+
+  // 离开页面时中断正在进行的流
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   // 自动滚到底部：仅在新消息追加 / 进度更新时滚动，避免展开全文时跳到底部
   useEffect(() => {
@@ -118,60 +142,62 @@ export function Chat() {
     }
   }, [messages, progress]);
 
-  async function sse(): Promise<void> {
-    return new Promise((resolve) => {
-      setProgress([]);
+  async function onSubmit() {
+    const text = question.trim();
+    if (!text || loading) return;
 
-      const es = new EventSource(`/api/ai/qa/stream/${job_id}`);
+    const jobId = crypto.randomUUID(); // 每次提问一个新 job
+    const controller = new AbortController();
+    abortRef.current = controller;
 
-      es.onmessage = (e) => {
-        const data: ChatProgress = JSON.parse(e.data);
-        if (!!data.done) {
-          es.close();
-          // 把最终 message 加入对话历史
-          setMessages((prev) => [
-            ...prev,
-            { role: "assistant", content: data.message, done: true },
-          ]);
-          setProgress([]);
-          setLoading(false);
-          resolve();
+    setQuestion("");
+    setError(null);
+    setProgress([]);
+    setLoading(true);
+    setMessages((prev) => [...prev, { role: "user", content: text }]);
+
+    try {
+      await Promise.all([
+        agentApi.ask(threadId, jobId, text),
+        streamSSE<ChatProgress>(
+          `/api/ai/qa/stream/${jobId}`,
+          (data) => {
+            if (data.done) {
+              setMessages((prev) => [
+                ...prev,
+                { role: "assistant", content: data.message, done: true },
+              ]);
+              setProgress([]);
+              controller.abort();
+              return;
+            }
+            setProgress((prev) => [...prev, data]);
+          },
+          { signal: controller.signal },
+        ),
+      ]);
+    } catch (e) {
+      const name = (e as { name?: string })?.name;
+      const status =
+        e instanceof SseHttpError
+          ? e.status
+          : (e as { response?: { status?: number } })?.response?.status;
+      if (name !== "AbortError") {
+        if (status === 401) {
+          logout(); // 登录失效 → RequireAuth 会跳登录页
           return;
         }
-
-        // 追加中间进度
-        setProgress((prev) => [...prev, data]);
-      };
-
-      es.onerror = () => {
-        es.close();
-        setLoading(false);
-        resolve();
-      };
-    });
-  }
-
-  async function onSubmit() {
-    if (!question.trim() || loading) return;
-
-    const userMsg = question.trim();
-    setQuestion("");
-    setLoading(true);
-
-    // 立即显示用户消息
-    setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
-
-    // 调 API 同时开 SSE
-    try {
-      await Promise.all([agentApi.ask(thread_id, job_id, userMsg), sse()]);
-    } catch (e) {
-      console.error(e);
+        console.error("发送失败", e);
+        setError("发送失败，请稍后重试");
+      }
+    } finally {
       setLoading(false);
+      setProgress([]);
+      abortRef.current = null;
     }
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    // Ctrl+Enter 或 Cmd+Enter 发送
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       e.preventDefault();
       onSubmit();
@@ -182,64 +208,57 @@ export function Chat() {
     setMessages((prev) =>
       prev.map((m, idx) => (idx === i ? { ...m, expanded: !m.expanded } : m)),
     );
-    // 展开后保持当前消息气泡位置，不跳到底部
     setTimeout(() => {
       msgElsRef.current.get(i)?.scrollIntoView({ block: "nearest" });
     }, 0);
   }
 
-  // 节点图标
-  const nodeIcon: Record<string, string> = {
-    supervisor: "🧭",
-    profile: "👤",
-    fundamental: "📊",
-    technical: "📈",
-    news: "📰",
-    synthesizer: "🧠",
-    reflection: "🪞",
-  };
-
   return (
-    <div className="flex flex-col h-full min-h-0 bg-base-100">
-      {/* ── Navbar ── */}
-      <nav className="navbar bg-base-200 border-b border-base-300 px-4 shrink-0">
-        <div className="flex-1 flex items-center gap-3">
+    <div className="flex min-h-0 flex-1 flex-col bg-base-100">
+      {/* ── 会话工具条 ── */}
+      <div className="flex shrink-0 items-center gap-2 border-b border-base-300 px-4 py-2">
+        <button
+          type="button"
+          className="btn btn-xs btn-ghost"
+          onClick={() => navigate("/chat")}
+        >
+          ← 会话列表
+        </button>
+        <span
+          className="badge badge-ghost badge-sm max-w-[220px] truncate font-mono text-base-content/50"
+          title={threadId}
+        >
+          {threadId}
+        </span>
+        <div className="ml-auto flex items-center gap-1">
+          {isAdmin && (
+            <button
+              type="button"
+              className="btn btn-xs btn-ghost"
+              onClick={() => navigate(`/chat/${threadId}/eval`)}
+            >
+              🧪 评测
+            </button>
+          )}
           <button
-            className="btn btn-sm btn-ghost"
-            onClick={() => navigate("/")}
-          >
-            ←
-          </button>
-          <span className="font-mono font-bold">AI 投资顾问</span>
-          <span className="badge badge-outline badge-sm">{thread_id}</span>
-        </div>
-        <div className="flex-none flex items-center gap-2">
-          <button
-            className="btn btn-xs btn-ghost"
-            onClick={() => navigate(`/chat/${thread_id}/eval`)}
-          >
-            🧪 评测
-          </button>
-          <button
-            className="btn btn-xs btn-ghost opacity-50"
+            type="button"
+            className="btn btn-xs btn-ghost text-base-content/40"
             onClick={() => setMessages([])}
           >
             清空对话
           </button>
         </div>
-      </nav>
+      </div>
 
-      {/* ── Messages ── */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-6 space-y-6">
-        {/* 空状态 */}
+      {/* ── 消息区 ── */}
+      <div className="relative min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-6">
         {messages.length === 0 && !loading && (
-          <div className="flex flex-col items-center justify-center h-full gap-4 opacity-40">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-base-content/35">
             <span className="text-5xl">📈</span>
             <p className="text-sm">问我任何 A 股投资问题</p>
           </div>
         )}
 
-        {/* 对话历史 */}
         {messages.map((msg, i) => (
           <div
             key={i}
@@ -249,26 +268,24 @@ export function Chat() {
             }}
             className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
-            {/* AI 头像 */}
             {msg.role === "assistant" && (
               <div className="avatar placeholder shrink-0">
-                <div className="bg-primary text-primary-content rounded-full w-8 h-8">
+                <div className="h-8 w-8 rounded-full bg-primary text-primary-content">
                   <span className="text-xs">AI</span>
                 </div>
               </div>
             )}
 
-            {/* 消息气泡 */}
             <div
-              className={`max-w-[75%] min-w-0 break-words rounded-2xl px-4 py-3 text-sm ${
+              className={`min-w-0 max-w-[75%] break-words rounded-2xl px-4 py-3 text-sm ${
                 msg.role === "user"
-                  ? "bg-primary text-primary-content rounded-br-sm"
-                  : "bg-base-200 rounded-bl-sm"
+                  ? "rounded-br-sm bg-primary text-primary-content"
+                  : "rounded-bl-sm bg-base-200"
               }`}
             >
               <div className="min-w-0">
                 {msg.role === "assistant" ? (
-                  <div className="prose prose-sm max-w-none prose-invert overflow-x-auto">
+                  <div className="prose prose-sm max-w-none overflow-x-auto">
                     <ReactMarkdown>
                       {previewContent(msg.content, msg.expanded)}
                     </ReactMarkdown>
@@ -280,6 +297,7 @@ export function Chat() {
                 )}
                 {msg.content.length > MAX_PREVIEW_LEN && (
                   <button
+                    type="button"
                     className="btn btn-xs btn-ghost mt-2"
                     onClick={() => toggleExpand(i)}
                   >
@@ -289,10 +307,9 @@ export function Chat() {
               </div>
             </div>
 
-            {/* 用户头像 */}
             {msg.role === "user" && (
               <div className="avatar placeholder shrink-0">
-                <div className="bg-base-300 rounded-full w-8 h-8">
+                <div className="h-8 w-8 rounded-full bg-base-300">
                   <span className="text-xs">你</span>
                 </div>
               </div>
@@ -300,27 +317,29 @@ export function Chat() {
           </div>
         ))}
 
-        {/* 实时进度（loading 中显示） */}
+        {/* 实时进度 */}
         {loading && (
-          <div className="flex gap-3 justify-start">
+          <div className="flex justify-start gap-3">
             <div className="avatar placeholder shrink-0">
-              <div className="bg-primary text-primary-content rounded-full w-8 h-8">
+              <div className="h-8 w-8 rounded-full bg-primary text-primary-content">
                 <span className="text-xs">AI</span>
               </div>
             </div>
 
-            <div className="bg-base-200 rounded-2xl rounded-bl-sm px-4 py-3 max-w-[75%] space-y-2">
+            <div className="max-w-[75%] space-y-2 rounded-2xl rounded-bl-sm bg-base-200 px-4 py-3">
               {progress.length === 0 ? (
                 <div className="flex items-center gap-2">
                   <span className="loading loading-dots loading-xs" />
-                  <span className="text-xs opacity-50">思考中...</span>
+                  <span className="text-xs text-base-content/50">思考中...</span>
                 </div>
               ) : (
                 <div className="space-y-1">
                   {progress.map((p, i) => (
                     <div key={i} className="flex items-center gap-2 text-xs">
-                      <span>{nodeIcon[p.node] ?? "⚙️"}</span>
-                      <span className="opacity-60 font-mono">{p.node}</span>
+                      <span>{NODE_ICON[p.node] ?? "⚙️"}</span>
+                      <span className="font-mono text-base-content/60">
+                        {p.node}
+                      </span>
                       <span
                         className={`badge badge-xs ${
                           p.status === "done"
@@ -335,16 +354,15 @@ export function Chat() {
                         {p.status}
                       </span>
                       {p.message && (
-                        <span className="opacity-40 truncate max-w-xs">
+                        <span className="max-w-xs truncate text-base-content/40">
                           {p.message}
                         </span>
                       )}
                     </div>
                   ))}
-                  {/* 最后一个节点的 loading */}
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="mt-1 flex items-center gap-2">
                     <span className="loading loading-ring loading-xs" />
-                    <span className="text-xs opacity-40">生成中...</span>
+                    <span className="text-xs text-base-content/40">生成中...</span>
                   </div>
                 </div>
               )}
@@ -352,39 +370,47 @@ export function Chat() {
           </div>
         )}
 
+        {error && (
+          <div className="alert alert-error py-2 text-sm">
+            <span>⚠ {error}</span>
+          </div>
+        )}
+
         <div ref={bottomRef} />
       </div>
 
-      {/* ── Input ── */}
+      {/* ── 输入区 ── */}
       <div className="shrink-0 border-t border-base-300 bg-base-100 px-4 py-3">
-        <div className="max-w-3xl mx-auto">
-          <div className="flex gap-2 items-end bg-base-200 rounded-2xl px-4 py-3">
+        <div className="mx-auto max-w-3xl">
+          <div className="flex items-end gap-2 rounded-2xl bg-base-200 px-4 py-3">
             <textarea
               ref={textareaRef}
-              className="flex-1 bg-transparent resize-none outline-none text-sm placeholder-base-content/30 max-h-40 min-h-[24px]"
+              className="max-h-40 min-h-[24px] flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-base-content/30"
               placeholder="输入问题，Ctrl+Enter 发送..."
               rows={1}
               value={question}
               disabled={loading}
               onChange={(e) => {
                 setQuestion(e.target.value);
-                // 自动撑高
                 e.target.style.height = "auto";
                 e.target.style.height = e.target.scrollHeight + "px";
               }}
               onKeyDown={onKeyDown}
             />
             <button
-              className={`btn btn-sm btn-primary rounded-xl px-4 ${
-                loading ? "loading loading-spinner" : ""
-              }`}
+              type="button"
+              className="btn btn-sm btn-primary rounded-xl px-4"
               disabled={!question.trim() || loading}
               onClick={onSubmit}
             >
-              {loading ? "" : "发送"}
+              {loading ? (
+                <span className="loading loading-spinner loading-xs" />
+              ) : (
+                "发送"
+              )}
             </button>
           </div>
-          <p className="text-xs opacity-30 text-center mt-2">
+          <p className="mt-2 text-center text-xs text-base-content/30">
             Ctrl + Enter 发送 · AI 回答仅供参考，不构成投资建议
           </p>
         </div>

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import "dayjs/locale/zh-cn";
 import { memoryApi } from "../api/memory";
+import { useAuth } from "../auth/useAuth";
+import { AppShell } from "../layout/AppShell";
 import type { MemoryItem } from "../types";
 
 dayjs.extend(relativeTime);
@@ -96,13 +98,18 @@ function SortableTh({ col, sortKey, sortDir, onSort }: SortableThProps) {
 }
 
 export function MemoriesPage() {
-  const navigate = useNavigate();
+  const { user, isAdmin } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [userId, setUserId] = useState(searchParams.get("user") ?? "");
-  const [queryUserId, setQueryUserId] = useState(
-    searchParams.get("user") ?? "",
-  );
+  // 自己的 user_id：优先 /me 的 user_id，兜底 id / login
+  const ownUserId = useMemo(() => {
+    const raw = user?.user_id ?? user?.id ?? user?.login;
+    return raw != null ? String(raw) : "";
+  }, [user]);
+
+  const urlUser = searchParams.get("user") ?? "";
+  const [userId, setUserId] = useState(urlUser || ownUserId);
+  const [queryUserId, setQueryUserId] = useState(urlUser || ownUserId);
   const [records, setRecords] = useState<MemoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -119,7 +126,7 @@ export function MemoriesPage() {
     setError(null);
     try {
       const data = await memoryApi.list(trimmed, { limit: FETCH_LIMIT });
-      setRecords(data.items);
+      setRecords(Array.isArray(data?.items) ? data.items : []);
       setPage(1);
     } catch (e) {
       const err = e as {
@@ -133,19 +140,19 @@ export function MemoriesPage() {
     }
   }, []);
 
-  // 首次进入时，如果 URL 带 user 参数则自动加载
+  const effectiveUserId = queryUserId || ownUserId;
+
+  // 自动加载：默认自己，管理员可通过搜索切换成别人
   useEffect(() => {
-    const initial = searchParams.get("user");
-    if (initial) fetchMemories(initial);
+    if (effectiveUserId) fetchMemories(effectiveUserId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [effectiveUserId]);
 
   const handleSearch = () => {
     const trimmed = userId.trim();
     if (!trimmed) return;
     setSearchParams({ user: trimmed }, { replace: true });
     setQueryUserId(trimmed);
-    fetchMemories(trimmed);
   };
 
   const handleSort = (key: SortKey) => {
@@ -183,50 +190,54 @@ export function MemoriesPage() {
   }, [currentPage, totalPages]);
 
   return (
-    <div className="min-h-screen bg-base-100">
-      {/* ── Navbar ── */}
-      <nav className="navbar bg-base-200 border-b border-base-300 px-6">
-        <div className="flex-1 flex items-center gap-3">
+    <AppShell
+      title="我的记忆"
+      subtitle={isAdmin ? "管理员可查询任意用户" : "这里只显示你自己的记忆"}
+      actions={
+        effectiveUserId ? (
+          <span
+            className="badge badge-ghost badge-sm max-w-[200px] truncate font-mono"
+            title={effectiveUserId}
+          >
+            {effectiveUserId}
+          </span>
+        ) : null
+      }
+    >
+      <div className="space-y-4">
+        {/* ── 查询工具栏 ── */}
+        <div className="flex flex-wrap items-center gap-3">
+          {isAdmin && (
+            <>
+              <input
+                type="text"
+                className="input input-sm input-bordered w-72 font-mono"
+                placeholder="查询其他用户 ID / 名称..."
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              />
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={handleSearch}
+                disabled={!userId.trim() || loading}
+              >
+                查询
+              </button>
+            </>
+          )}
           <button
             type="button"
             className="btn btn-sm btn-ghost"
-            onClick={() => navigate("/")}
+            onClick={() => fetchMemories(effectiveUserId)}
+            disabled={!effectiveUserId || loading}
           >
-            ← 返回
-          </button>
-          <span className="font-bold text-lg">🧠 用户记忆</span>
-        </div>
-        {queryUserId && (
-          <span className="font-mono text-sm opacity-60">{queryUserId}</span>
-        )}
-      </nav>
-
-      <div className="p-6 space-y-4">
-        {/* ── 查询工具栏 ── */}
-        <div className="flex flex-wrap items-center gap-3">
-          <input
-            type="text"
-            className="input input-sm input-bordered w-72 font-mono"
-            placeholder="输入用户 ID / 名称..."
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          />
-          <button
-            type="button"
-            className="btn btn-sm btn-primary"
-            onClick={handleSearch}
-            disabled={!userId.trim() || loading}
-          >
-            查询
-          </button>
-          <button
-            type="button"
-            className={`btn btn-sm btn-ghost ${loading ? "loading" : ""}`}
-            onClick={() => fetchMemories(queryUserId)}
-            disabled={!queryUserId || loading}
-          >
-            {loading ? "" : "↺ 刷新"}
+            {loading ? (
+              <span className="loading loading-spinner loading-xs" />
+            ) : (
+              "↺ 刷新"
+            )}
           </button>
           <span className="text-xs opacity-50">共 {sorted.length} 条</span>
           {sorted.length >= FETCH_LIMIT && (
@@ -260,7 +271,7 @@ export function MemoriesPage() {
         )}
 
         {/* ── 表格 ── */}
-        <div className="overflow-x-auto rounded-box border border-base-300">
+        <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100">
           <table className="table table-sm table-pin-rows w-full">
             <thead>
               <tr className="bg-base-200">
@@ -289,7 +300,9 @@ export function MemoriesPage() {
               {!loading && !error && sorted.length === 0 && (
                 <tr>
                   <td colSpan={12} className="text-center py-12 opacity-40">
-                    {queryUserId ? "该用户暂无记忆" : "请输入用户 ID / 名称查询"}
+                    {effectiveUserId
+                      ? "该用户暂无记忆"
+                      : "没能取到你的用户 ID，请重新登录"}
                   </td>
                 </tr>
               )}
@@ -388,6 +401,6 @@ export function MemoriesPage() {
           </div>
         )}
       </div>
-    </div>
+    </AppShell>
   );
 }

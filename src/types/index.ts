@@ -171,6 +171,26 @@ export interface ConversationResponse {
   [key: string]: unknown;
 }
 
+// ── Chat threads ────────────────────────────────────────
+
+export interface ChatThread {
+  thread_id: string;
+  title?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  message_count?: number | null;
+  [key: string]: unknown;
+}
+
+// 兼容数组与 { items / threads / data } 包装
+export interface ChatThreadListResponse {
+  items?: ChatThread[];
+  threads?: ChatThread[];
+  data?: ChatThread[];
+  total?: number;
+  [key: string]: unknown;
+}
+
 // ── Memory ───────────────────────────────────────────────
 
 export interface MemoryItem {
@@ -222,6 +242,7 @@ export interface AuthToken {
   is_admin?: boolean;
   admin?: boolean;
   revoked?: boolean;
+  revoked_at?: string | null;
   created_at?: string | null;
   expires_at?: string | null;
   last_used_at?: string | null;
@@ -238,15 +259,33 @@ export interface AuthTokenListResponse {
 }
 
 // 明文 secret 的字段名不确定，创建后做多字段兜底提取。
-export interface CreateTokenResponse {
+/** 创建密钥后返回的元数据（不含明文） */
+export interface CreatedTokenMeta {
   id?: string;
   name?: string | null;
-  token?: string;
+  token_prefix?: string | null;
+  is_admin?: boolean;
+  created_at?: string | null;
+  expires_at?: string | null;
+  revoked_at?: string | null;
+  last_used_at?: string | null;
+  [key: string]: unknown;
+}
+
+/**
+ * POST /api/auth/tokens 的响应。
+ * 明文在 access_token，token 里是元数据对象（不是明文）。
+ */
+export interface CreateTokenResponse {
+  access_token?: string;
+  token_type?: string;
+  token?: CreatedTokenMeta | string | null;
+  is_admin?: boolean;
+  notice?: string;
   secret?: string;
   api_key?: string;
   plaintext?: string;
   key?: string;
-  expires_at?: string | null;
   [key: string]: unknown;
 }
 

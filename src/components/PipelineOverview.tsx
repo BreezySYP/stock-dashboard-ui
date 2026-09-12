@@ -106,10 +106,10 @@ export function PipelineOverview() {
       )}
 
       {/* Steps table */}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100">
         <table className="table table-sm w-full">
           <thead>
-            <tr>
+            <tr className="bg-base-200">
               <th>Step</th>
               <th>标签</th>
               <th>分组</th>

@@ -48,7 +48,7 @@ export function JobLogs({ code, step }: Props) {
       <div className="overflow-x-auto">
         <table className="table table-xs w-full">
           <thead>
-            <tr>
+            <tr className="bg-base-200">
               <th>ID</th>
               <th>Code</th>
               <th>Step</th>

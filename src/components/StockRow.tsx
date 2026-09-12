@@ -187,7 +187,7 @@ export function StockRow({ stock, steps, onRefresh }: Props) {
               <div className="mt-3 flex justify-end">
                 <button
                   className="btn btn-sm btn-outline"
-                  onClick={() => navigate(`/stock/${stock.code}`)}
+                  onClick={() => navigate(`/stocks/${stock.code}`)}
                 >
                   查看完整详情 →
                 </button>

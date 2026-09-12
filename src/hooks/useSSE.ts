@@ -1,38 +1,37 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { SSEEvent } from "../types";
+import { streamSSE } from "../lib/sse";
 
+/** ETL 任务进度流（走带鉴权的 fetch，见 lib/sse.ts） */
 export function useSSE(jobId: string | null) {
   const [events, setEvents] = useState<SSEEvent[]>([]);
   const [done, setDone] = useState(false);
-  const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
     setEvents([]);
     setDone(false);
-
     if (jobId === null) return;
 
-    const es = new EventSource(`/api/etl/stream/${jobId}`);
-    esRef.current = es;
+    const controller = new AbortController();
+    streamSSE<SSEEvent>(
+      `/api/etl/stream/${jobId}`,
+      (data) => {
+        if (data.done || data.error) {
+          setDone(true);
+          controller.abort();
+          return;
+        }
+        setEvents((prev) => [...prev, data]);
+      },
+      { signal: controller.signal },
+    )
+      .catch((err: unknown) => {
+        const name = (err as { name?: string })?.name;
+        if (name !== "AbortError") console.error("ETL SSE 失败", err);
+      })
+      .finally(() => setDone(true));
 
-    es.onmessage = (e) => {
-      const data: SSEEvent = JSON.parse(e.data);
-      if (data.done || data.error) {
-        setDone(true);
-        es.close();
-        return;
-      }
-      setEvents((prev) => [...prev, data]);
-    };
-
-    es.onerror = () => {
-      es.close();
-      setDone(true);
-    };
-
-    return () => {
-      es.close();
-    };
+    return () => controller.abort();
   }, [jobId]);
 
   return { events, done };

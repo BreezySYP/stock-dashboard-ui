@@ -16,8 +16,11 @@ A股数据 ETL 管理前端，基于 Vite + React + TypeScript + Tailwind CSS + 
 
 ```bash
 npm install
-npm run dev        # http://localhost:3010
+npm run dev        # http://localhost:3011
 ```
+
+> 端口固定为 3011（`strictPort`）：auth 服务 GitHub 登录成功后会把浏览器跳回
+> `http://localhost:3011/auth/callback`，两边端口必须一致，否则回调请求会一直挂起。
 
 ## 生产构建
 
@@ -49,6 +52,28 @@ docker build -t stock-dashboard-ui .
 
 前端页面：`/settings/api-keys`（生成 / 管理 API 密钥）、
 `/auth/callback`（GitHub 登录回调）。
+
+## 页面与权限
+
+整体是「左侧边栏 + 顶栏」外壳，未登录访问任何页面都会落到全屏登录页。
+
+| 页面 | 路径 | 权限 |
+| --- | --- | --- |
+| 会话列表 | `/chat` | 登录用户 |
+| 会话详情 | `/chat/:thread_id` | 登录用户 |
+| 我的记忆 | `/memories` | 登录用户（管理员可查他人） |
+| API 密钥 | `/settings/api-keys` | 登录用户 |
+| 股票数据 | `/stocks`、`/stocks/:code` | 仅管理员 |
+| Pipeline | `/pipeline` | 仅管理员 |
+| 任务日志 | `/logs` | 仅管理员 |
+| AI 评测 | `/chat/:thread_id/eval` | 仅管理员 |
+
+权限判断来自 `/api/auth/me` 的 `is_admin` / `admin` / `role`；前端隐藏只是体验层，
+真正的授权必须由后端执行。
+
+会话列表依赖后端提供的 `GET /api/ai/threads`（返回 `{items:[{thread_id,title,updated_at}]}`）。
+聊天的实时进度走 `GET /api/ai/qa/stream/{job_id}`，前端用 fetch + ReadableStream 读取，
+以便带上 `Authorization: Bearer`（`EventSource` 无法自定义请求头）。
 
 ### 登录凭证传递方式
 

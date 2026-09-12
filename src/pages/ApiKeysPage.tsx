@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
-import { authApi, extractSecret, normalizeTokens } from "../api/auth";
+import {
+  authApi,
+  extractSecret,
+  extractTokenMeta,
+  normalizeTokens,
+} from "../api/auth";
 import { useAuth } from "../auth/useAuth";
-import { GithubIcon } from "../components/AuthMenu";
+import { GithubLoginButton } from "../components/GithubLoginButton";
+import { AppShell } from "../layout/AppShell";
 import type { AuthToken, CreateTokenResponse } from "../types";
 
 const EXPIRY_OPTIONS = [
@@ -39,14 +44,14 @@ const tokenPrefix = (t: AuthToken) =>
 const tokenIsAdmin = (t: AuthToken) =>
   Boolean(t.is_admin ?? t.admin);
 
-const tokenIsRevoked = (t: AuthToken) => Boolean(t.revoked);
+const tokenIsRevoked = (t: AuthToken) =>
+  Boolean(t.revoked) || Boolean(t.revoked_at);
 
 const tokenIdOf = (t: AuthToken): string | null =>
   t.id != null ? String(t.id) : null;
 
 export function ApiKeysPage() {
-  const navigate = useNavigate();
-  const { user, loading: authLoading, isAdmin, login, logout } = useAuth();
+  const { user, loading: authLoading, isAdmin } = useAuth();
 
   const [tokens, setTokens] = useState<AuthToken[]>([]);
   const [listLoading, setListLoading] = useState(false);
@@ -62,6 +67,7 @@ export function ApiKeysPage() {
   const [revoking, setRevoking] = useState<string | null>(null);
 
   const createdSecret = useMemo(() => extractSecret(created), [created]);
+  const createdMeta = useMemo(() => extractTokenMeta(created), [created]);
 
   const loadTokens = useCallback(async () => {
     setListLoading(true);
@@ -140,50 +146,32 @@ export function ApiKeysPage() {
   const activeCount = tokens.filter((t) => !tokenIsRevoked(t)).length;
 
   return (
-    <div className="min-h-screen bg-base-100">
-      <nav className="navbar bg-base-200 border-b border-base-300 px-6">
-        <div className="flex-1 gap-2">
-          <button
-            className="btn btn-sm btn-ghost"
-            onClick={() => navigate("/")}
-          >
-            ← 返回
-          </button>
-          <span className="text-lg font-bold font-mono">🔑 API 密钥</span>
-        </div>
-        <div className="flex-none">
-          {user && (
-            <button className="btn btn-sm btn-ghost" onClick={logout}>
-              退出登录
-            </button>
-          )}
-        </div>
-      </nav>
-
-      <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <AppShell
+      title="API 密钥"
+      subtitle="用于脚本或第三方程序访问后端"
+    >
+      <div className="mx-auto max-w-4xl space-y-6">
         {authLoading ? (
           <div className="flex justify-center py-20">
             <span className="loading loading-spinner loading-lg" />
           </div>
         ) : !user ? (
-          <div className="card bg-base-200 border border-base-300">
+          <div className="card bg-base-100 border border-base-300">
             <div className="card-body items-center text-center gap-4">
               <h2 className="card-title">需要先登录</h2>
               <p className="text-sm opacity-70 max-w-md">
                 使用 GitHub 登录后才能生成和管理属于你自己的 API 密钥。
               </p>
-              <button
-                className="btn btn-primary"
-                onClick={() => login("/settings/api-keys")}
-              >
-                <GithubIcon /> 使用 GitHub 登录
-              </button>
+              <GithubLoginButton
+                className="btn btn-primary gap-2"
+                next="/settings/api-keys"
+              />
             </div>
           </div>
         ) : (
           <>
             {/* ── 生成新密钥 ── */}
-            <div className="card bg-base-200 border border-base-300">
+            <div className="card bg-base-100 border border-base-300">
               <div className="card-body gap-4">
                 <h2 className="card-title text-base font-mono">
                   生成新的 API 密钥
@@ -192,7 +180,8 @@ export function ApiKeysPage() {
                   明文只在生成时返回一次，请立即保存到安全的地方。
                 </p>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                {/* 备注名占满剩余宽度，有效期短一些 */}
+                <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_9rem]">
                   <label className="form-control w-full">
                     <div className="label">
                       <span className="label-text">备注名</span>
@@ -211,7 +200,7 @@ export function ApiKeysPage() {
                       <span className="label-text">有效期</span>
                     </div>
                     <select
-                      className="select select-bordered select-sm font-mono"
+                      className="select select-bordered select-sm w-full font-mono"
                       value={expiresDays === null ? "never" : String(expiresDays)}
                       onChange={(e) =>
                         setExpiresDays(
@@ -273,17 +262,22 @@ export function ApiKeysPage() {
 
             {/* ── 明文（仅一次） ── */}
             {created && (
-              <div className="card bg-warning/10 border border-warning">
+              <div className="card border border-warning bg-warning/10">
                 <div className="card-body gap-3">
-                  <h2 className="card-title text-base text-warning font-mono">
+                  <h2 className="card-title text-base text-warning">
                     ⚠️ 请立即复制，关闭后无法再次查看
                   </h2>
+                  <p className="-mt-1 text-xs text-base-content/60">
+                    {created.notice ??
+                      "明文只显示这一次，之后只能看到前缀。"}
+                  </p>
                   <div className="flex items-center gap-2">
-                    <code className="flex-1 overflow-x-auto rounded bg-base-300 px-3 py-2 text-xs font-mono break-all">
+                    <code className="flex-1 overflow-x-auto break-all rounded border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">
                       {createdSecret ??
-                        `（响应里没有找到明文字段，原始返回：${JSON.stringify(created)}）`}
+                        "（响应里没找到明文字段，请检查后端返回内容）"}
                     </code>
                     <button
+                      type="button"
                       className="btn btn-sm"
                       disabled={!createdSecret}
                       onClick={handleCopy}
@@ -291,8 +285,24 @@ export function ApiKeysPage() {
                       {copied ? "✓ 已复制" : "复制"}
                     </button>
                   </div>
+                  {(createdMeta?.name ||
+                    createdMeta?.token_prefix ||
+                    createdMeta?.expires_at) && (
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-base-content/60">
+                      {createdMeta?.name && <span>备注：{createdMeta.name}</span>}
+                      {createdMeta?.token_prefix && (
+                        <span className="font-mono">
+                          前缀：{createdMeta.token_prefix}
+                        </span>
+                      )}
+                      {createdMeta?.expires_at && (
+                        <span>到期：{fmt(createdMeta.expires_at)}</span>
+                      )}
+                    </div>
+                  )}
                   <div className="flex justify-end">
                     <button
+                      type="button"
                       className="btn btn-sm btn-ghost"
                       onClick={() => setCreated(null)}
                     >
@@ -304,7 +314,7 @@ export function ApiKeysPage() {
             )}
 
             {/* ── 密钥列表 ── */}
-            <div className="card bg-base-200 border border-base-300">
+            <div className="card bg-base-100 border border-base-300">
               <div className="card-body gap-3">
                 <div className="flex items-center gap-3">
                   <h2 className="card-title text-base font-mono">
@@ -328,10 +338,10 @@ export function ApiKeysPage() {
                   <div className="alert alert-error py-2 text-sm">{listError}</div>
                 )}
 
-                <div className="overflow-x-auto rounded-box border border-base-300">
+                <div className="overflow-x-auto rounded-box border border-base-300 bg-base-100">
                   <table className="table table-sm w-full">
                     <thead>
-                      <tr className="bg-base-300">
+                      <tr className="bg-base-200">
                         <th>备注名</th>
                         <th className="font-mono">前缀</th>
                         <th>创建时间</th>
@@ -410,6 +420,6 @@ export function ApiKeysPage() {
           </>
         )}
       </div>
-    </div>
+    </AppShell>
   );
 }

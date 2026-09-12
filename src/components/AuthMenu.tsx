@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
+import { GithubLoginButton } from "./GithubLoginButton";
 
 export function GithubIcon({ size = 16 }: { size?: number }) {
   return (
@@ -18,7 +19,7 @@ export function GithubIcon({ size = 16 }: { size?: number }) {
 /** 顶栏登录状态：未登录显示 GitHub 登录，已登录显示头像 + 菜单 */
 export function AuthMenu() {
   const navigate = useNavigate();
-  const { user, loading, isAdmin, login, logout } = useAuth();
+  const { user, loading, isAdmin, logout } = useAuth();
 
   if (loading) {
     return <span className="loading loading-spinner loading-xs" />;
@@ -26,12 +27,10 @@ export function AuthMenu() {
 
   if (!user) {
     return (
-      <button
+      <GithubLoginButton
         className="btn btn-sm btn-outline gap-2 mr-2"
-        onClick={() => login()}
-      >
-        <GithubIcon /> GitHub 登录
-      </button>
+        label="GitHub 登录"
+      />
     );
   }
 
