@@ -208,6 +208,12 @@ export function Chat({ threadId }: { threadId: string }) {
     }, 0);
   }
 
+  const latestAssistantIndex = messages.reduce(
+    (latest, message, index) =>
+      message.role === "assistant" ? index : latest,
+    -1,
+  );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-base-100">
       {/* ── 会话工具条 ── */}
@@ -254,63 +260,75 @@ export function Chat({ threadId }: { threadId: string }) {
           </div>
         )}
 
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            ref={(el) => {
-              if (el) msgElsRef.current.set(i, el);
-              else msgElsRef.current.delete(i);
-            }}
-            className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            {msg.role === "assistant" && (
-              <div className="avatar placeholder shrink-0">
-                <div className="h-8 w-8 rounded-full bg-primary text-primary-content">
-                  <span className="text-xs">AI</span>
-                </div>
-              </div>
-            )}
+        {messages.map((msg, i) => {
+          const isLatestAssistant = i === latestAssistantIndex;
+          const canCollapse =
+            msg.content.length > MAX_PREVIEW_LEN && !isLatestAssistant;
 
+          return (
             <div
-              className={`min-w-0 max-w-[75%] break-words rounded-2xl px-4 py-3 text-sm ${
-                msg.role === "user"
-                  ? "rounded-br-sm bg-primary text-primary-content"
-                  : "rounded-bl-sm bg-base-200"
-              }`}
+              key={i}
+              ref={(el) => {
+                if (el) msgElsRef.current.set(i, el);
+                else msgElsRef.current.delete(i);
+              }}
+              className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
-              <div className="min-w-0">
-                {msg.role === "assistant" ? (
-                  <div className="prose prose-sm max-w-none overflow-x-auto">
-                    <ReactMarkdown>
-                      {previewContent(msg.content, msg.expanded)}
-                    </ReactMarkdown>
+              {msg.role === "assistant" && (
+                <div className="avatar placeholder shrink-0">
+                  <div className="h-8 w-8 rounded-full bg-primary text-primary-content">
+                    <span className="text-xs">AI</span>
                   </div>
-                ) : (
-                  <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">
-                    {previewContent(msg.content, msg.expanded)}
-                  </p>
-                )}
-                {msg.content.length > MAX_PREVIEW_LEN && (
-                  <button
-                    type="button"
-                    className="btn btn-xs btn-ghost mt-2"
-                    onClick={() => toggleExpand(i)}
-                  >
-                    {msg.expanded ? "▲ 收起" : "▼ 展开全文"}
-                  </button>
-                )}
-              </div>
-            </div>
+                </div>
+              )}
 
-            {msg.role === "user" && (
-              <div className="avatar placeholder shrink-0">
-                <div className="h-8 w-8 rounded-full bg-base-300">
-                  <span className="text-xs">你</span>
+              <div
+                className={`min-w-0 max-w-[75%] break-words rounded-2xl px-4 py-3 text-sm ${
+                  msg.role === "user"
+                    ? "rounded-br-sm bg-primary text-primary-content"
+                    : "rounded-bl-sm bg-base-200"
+                }`}
+              >
+                <div className="min-w-0">
+                  {msg.role === "assistant" ? (
+                    <div className="prose prose-sm max-w-none overflow-x-auto">
+                      <ReactMarkdown>
+                        {previewContent(
+                          msg.content,
+                          msg.expanded || isLatestAssistant,
+                        )}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">
+                      {previewContent(
+                        msg.content,
+                        msg.expanded || isLatestAssistant,
+                      )}
+                    </p>
+                  )}
+                  {canCollapse && (
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-ghost mt-2"
+                      onClick={() => toggleExpand(i)}
+                    >
+                      {msg.expanded ? "▲ 收起" : "▼ 展开全文"}
+                    </button>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
-        ))}
+
+              {msg.role === "user" && (
+                <div className="avatar placeholder shrink-0">
+                  <div className="h-8 w-8 rounded-full bg-base-300">
+                    <span className="text-xs">你</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         {/* 实时进度 */}
         {loading && (
