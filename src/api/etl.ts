@@ -1,6 +1,9 @@
 import client from "./client";
 import type {
   TriggerResponse,
+  RawCheckpoint,
+  EtlStatistics,
+  EtlRun,
   JobLog,
   StepMeta,
   Summary,
@@ -21,6 +24,28 @@ export const etlApi = {
     client
       .post<TriggerResponse>("/etl/trigger/all", { mode, steps })
       .then((r) => r.data),
+
+  triggerFactor: (factors: string[]) =>
+    client
+      .post<TriggerResponse>("/etl/trigger/factor", { factors })
+      .then((r) => r.data),
+
+  /** 一次拉取 etl_code_checkpoint 全量原始行，聚合交给前端。 */
+  checkpointsRaw: () =>
+    client
+      .get<RawCheckpoint[]>("/etl/checkpoints/codes/raw", {
+        timeout: 120000,
+      })
+      .then((r) => r.data),
+
+  statistics: (params: { start?: string; end?: string } = {}) =>
+    client
+      .get<EtlStatistics>("/etl/statistics", { params })
+      .then((r) => r.data),
+
+  runs: (
+    params: { start?: string; end?: string; status?: string } = {},
+  ) => client.get<EtlRun[]>("/etl/runs", { params }).then((r) => r.data),
 
   // Jobs
   runningJobs: () =>

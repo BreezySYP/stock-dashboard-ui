@@ -8,14 +8,14 @@ interface Props {
 }
 
 export function SSEConsole({ jobId, onDone }: Props) {
-  const { events, done } = useSSE(jobId);
+  const { events, done, error } = useSSE(jobId);
 
   useEffect(() => {
-    if (done && onDone) {
+    if (done && !error && onDone) {
       const timer = setTimeout(onDone, 500);
       return () => clearTimeout(timer);
     }
-  }, [done]);
+  }, [done, error, onDone]);
 
   if (!jobId) return null;
 
@@ -36,7 +36,8 @@ export function SSEConsole({ jobId, onDone }: Props) {
           )}
         </div>
       ))}
-      {done && <div className="text-success mt-1">✓ 任务完成</div>}
+      {error && <div className="text-error mt-1">✗ {error}</div>}
+      {done && !error && <div className="text-success mt-1">✓ 任务完成</div>}
     </div>
   );
 }

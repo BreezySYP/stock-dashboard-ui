@@ -107,7 +107,7 @@ export interface StepMeta {
 }
 
 export interface SSEEvent {
-  job_id: number;
+  job_id: string;
   code: string;
   step: string;
   status: "running" | "success" | "failed";
@@ -115,6 +115,36 @@ export interface SSEEvent {
   progress: number | null;
   done?: boolean;
   error?: string;
+}
+
+export interface RawCheckpoint {
+  code: string;
+  step: string;
+  start_at: string | null;
+  completed_at: string | null;
+  [key: string]: unknown;
+}
+
+export interface EtlStatistics {
+  start?: string | null;
+  end?: string | null;
+  run_count: number;
+  completed: Record<string, number>;
+  skipped: Record<string, number>;
+  failed: Record<string, number>;
+  [key: string]: unknown;
+}
+
+export interface EtlRun {
+  job_id: string;
+  status: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  duration_ms?: number | null;
+  row_count?: number | null;
+  stats?: Record<string, unknown> | null;
+  error_msg?: string | null;
+  [key: string]: unknown;
 }
 
 // ── Status ───────────────────────────────────────────────
