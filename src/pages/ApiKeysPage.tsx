@@ -8,6 +8,7 @@ import {
 } from "../api/auth";
 import { useAuth } from "../auth/useAuth";
 import { GithubLoginButton } from "../components/GithubLoginButton";
+import { useAutoDismiss } from "../hooks/useAutoDismiss";
 import { AppShell } from "../layout/AppShell";
 import { apiErrorMessage } from "../lib/errors";
 import type { AuthToken, CreateTokenResponse } from "../types";
@@ -66,6 +67,8 @@ export function ApiKeysPage() {
   const [created, setCreated] = useState<CreateTokenResponse | null>(null);
   const [copied, setCopied] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
+  useAutoDismiss(listError, setListError, null);
+  useAutoDismiss(createError, setCreateError, null);
 
   const createdSecret = useMemo(() => extractSecret(created), [created]);
   const createdMeta = useMemo(() => extractTokenMeta(created), [created]);

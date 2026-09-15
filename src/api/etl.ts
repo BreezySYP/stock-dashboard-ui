@@ -4,6 +4,7 @@ import type {
   RawCheckpoint,
   EtlStatistics,
   EtlRun,
+  StopTaskResponse,
   JobLog,
   StepMeta,
   Summary,
@@ -28,6 +29,14 @@ export const etlApi = {
   triggerFactor: (factors: string[]) =>
     client
       .post<TriggerResponse>("/etl/trigger/factor", { factors })
+      .then((r) => r.data),
+
+  /** 协作式停止：任务在下一个安全点中断，并通过 SSE 推送 stopped。 */
+  stopJob: (jobId: string) =>
+    client
+      .post<StopTaskResponse>(
+        `/etl/jobs/${encodeURIComponent(jobId)}/stop`,
+      )
       .then((r) => r.data),
 
   /** 一次拉取 etl_code_checkpoint 全量原始行，聚合交给前端。 */

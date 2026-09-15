@@ -4,7 +4,9 @@ import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import { agentApi, normalizeConversation } from "../api/agent";
 import { useAuth } from "../auth/useAuth";
-import { SseHttpError, streamSSE } from "../lib/sse";
+import { useAutoDismiss } from "../hooks/useAutoDismiss";
+import { apiErrorMessage } from "../lib/errors";
+import { SSE_IDLE_TIMEOUT_MS, SseHttpError, streamSSE } from "../lib/sse";
 
 const MAX_HISTORY = 30; // 最多展示的历史条数
 const MAX_PREVIEW_LEN = 300; // 单条内容预览长度
@@ -73,9 +75,13 @@ export function Chat({ threadId }: { threadId: string }) {
   const [progress, setProgress] = useState<ChatProgress[]>([]);
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  const [stopped, setStopped] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useAutoDismiss(error, setError, null);
 
   const abortRef = useRef<AbortController | null>(null);
+  const activeJobIdRef = useRef<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const msgElsRef = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -86,6 +92,9 @@ export function Chat({ threadId }: { threadId: string }) {
     setMessages([]);
     setProgress([]);
     setError(null);
+    setStopping(false);
+    setStopped(false);
+    activeJobIdRef.current = null;
     let cancelled = false;
 
     agentApi
@@ -144,31 +153,69 @@ export function Chat({ threadId }: { threadId: string }) {
     const jobId = crypto.randomUUID(); // 每次提问一个新 job
     const controller = new AbortController();
     abortRef.current = controller;
+    activeJobIdRef.current = jobId;
 
     setQuestion("");
     setError(null);
+    setStopped(false);
+    setStopping(false);
     setProgress([]);
     setLoading(true);
     setMessages((prev) => [...prev, { role: "user", content: text }]);
 
+    let idleTimer: ReturnType<typeof setTimeout> | null = null;
+    let idleStopSent = false;
+    let streamEnded = false;
+
+    const clearIdleTimer = () => {
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = null;
+    };
+
+    const resetIdleTimer = () => {
+      clearIdleTimer();
+      idleTimer = setTimeout(async () => {
+        if (idleStopSent || streamEnded) return;
+        idleStopSent = true;
+        try {
+          await agentApi.stopQa(jobId);
+          if (streamEnded) return;
+          setStopped(true);
+        } catch (stopError) {
+          if (!streamEnded) {
+            setError(apiErrorMessage(stopError, "长时间无响应且停止回答失败"));
+          }
+        }
+        controller.abort();
+      }, SSE_IDLE_TIMEOUT_MS);
+    };
+
+    resetIdleTimer();
     try {
       await Promise.all([
         agentApi.ask(threadId, jobId, text),
         streamSSE<ChatProgress>(
           `/api/ai/qa/stream/${jobId}`,
           (data) => {
+            resetIdleTimer();
             if (data.done) {
-              setMessages((prev) => [
-                ...prev,
-                { role: "assistant", content: data.message, done: true },
-              ]);
+              streamEnded = true;
+              clearIdleTimer();
+              if (data.status === "stopped") {
+                setStopped(true);
+              } else {
+                setMessages((prev) => [
+                  ...prev,
+                  { role: "assistant", content: data.message, done: true },
+                ]);
+              }
               setProgress([]);
               controller.abort();
               return;
             }
             setProgress((prev) => [...prev, data]);
           },
-          { signal: controller.signal },
+          { signal: controller.signal, onActivity: resetIdleTimer },
         ),
       ]);
     } catch (e) {
@@ -186,9 +233,30 @@ export function Chat({ threadId }: { threadId: string }) {
         setError("发送失败，请稍后重试");
       }
     } finally {
+      clearIdleTimer();
       setLoading(false);
+      setStopping(false);
       setProgress([]);
       abortRef.current = null;
+      activeJobIdRef.current = null;
+    }
+  }
+
+  async function handleStop() {
+    const jobId = activeJobIdRef.current;
+    if (!loading || !jobId || stopping) return;
+    setStopping(true);
+    setError(null);
+    try {
+      await agentApi.stopQa(jobId);
+    } catch (e) {
+      const status = (e as { response?: { status?: number } })?.response?.status;
+      if (status === 401) {
+        logout();
+        return;
+      }
+      setStopping(false);
+      setError("停止回答失败，请稍后重试");
     }
   }
 
@@ -375,10 +443,25 @@ export function Chat({ threadId }: { threadId: string }) {
                   ))}
                   <div className="mt-1 flex items-center gap-2">
                     <span className="loading loading-ring loading-xs" />
-                    <span className="text-xs text-base-content/40">生成中...</span>
+                    <span className="text-xs text-base-content/40">
+                      {stopping ? "正在停止..." : "生成中..."}
+                    </span>
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {stopped && !loading && (
+          <div className="flex justify-start gap-3">
+            <div className="avatar placeholder shrink-0">
+              <div className="h-8 w-8 rounded-full bg-base-300">
+                <span className="text-xs">AI</span>
+              </div>
+            </div>
+            <div className="rounded-2xl rounded-bl-sm bg-base-200 px-4 py-2 text-xs text-base-content/60">
+              ■ 已停止生成
             </div>
           </div>
         )}
@@ -412,12 +495,21 @@ export function Chat({ threadId }: { threadId: string }) {
             />
             <button
               type="button"
-              className="btn btn-sm btn-primary rounded-xl px-4"
-              disabled={!question.trim() || loading}
-              onClick={onSubmit}
+              className={`btn btn-sm rounded-xl px-4 ${
+                loading ? "btn-error" : "btn-primary"
+              }`}
+              disabled={loading ? stopping : !question.trim()}
+              onClick={loading ? handleStop : onSubmit}
             >
               {loading ? (
-                <span className="loading loading-spinner loading-xs" />
+                stopping ? (
+                  <>
+                    <span className="loading loading-spinner loading-xs" />
+                    正在停止
+                  </>
+                ) : (
+                  "■ 停止"
+                )
               ) : (
                 "发送"
               )}

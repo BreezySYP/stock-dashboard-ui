@@ -10,6 +10,7 @@ const MAP: Record<string, string> = {
   running: "badge-warning badge-running",
   pending: "badge-ghost",
   cancelled: "badge-ghost",
+  stopped: "badge-neutral",
 };
 
 const LABEL: Record<string, string> = {
@@ -19,6 +20,7 @@ const LABEL: Record<string, string> = {
   running: "⟳ 运行中",
   pending: "· 等待",
   cancelled: "× 已取消",
+  stopped: "■ 已停止",
 };
 
 export function StatusBadge({ status, size = "sm" }: Props) {

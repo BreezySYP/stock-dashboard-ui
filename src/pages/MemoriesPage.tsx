@@ -5,6 +5,7 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import "dayjs/locale/zh-cn";
 import { memoryApi } from "../api/memory";
 import { useAuth } from "../auth/useAuth";
+import { useAutoDismiss } from "../hooks/useAutoDismiss";
 import { AppShell } from "../layout/AppShell";
 import { apiErrorMessage } from "../lib/errors";
 import type { MemoryItem } from "../types";
@@ -114,6 +115,7 @@ export function MemoriesPage() {
   const [records, setRecords] = useState<MemoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useAutoDismiss(error, setError, null);
 
   const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");

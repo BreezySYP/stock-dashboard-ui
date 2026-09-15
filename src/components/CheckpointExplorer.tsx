@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
 import { etlApi } from "../api/etl";
+import { useAutoDismiss } from "../hooks/useAutoDismiss";
 import { apiErrorMessage } from "../lib/errors";
 import {
   aggregateRawCheckpoints,
@@ -150,6 +151,7 @@ export function CheckpointExplorer({ steps }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [refreshKey, setRefreshKey] = useState(0);
+  useAutoDismiss(error, setError, "");
 
   useEffect(() => {
     if (!selectedStep && steps.length > 0) {

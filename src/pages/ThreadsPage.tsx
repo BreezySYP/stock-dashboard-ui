@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import { agentApi, normalizeThreads, threadTitle } from "../api/agent";
+import { useAutoDismiss } from "../hooks/useAutoDismiss";
 import { AppShell } from "../layout/AppShell";
 import type { ChatThread } from "../types";
 
@@ -34,6 +35,7 @@ export function ThreadsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useAutoDismiss(error, setError, null);
 
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);

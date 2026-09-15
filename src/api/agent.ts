@@ -4,6 +4,7 @@ import type {
   ChatThreadListResponse,
   ConversationMessage,
   ConversationResponse,
+  StopTaskResponse,
 } from "../types";
 import client from "./client";
 
@@ -26,6 +27,12 @@ export const agentApi = {
         { thread_id, job_id, question },
         { params: { thread_id } },
       )
+      .then((r) => r.data),
+
+  /** 协作式停止：Agent 在下一个节点开始前中断。 */
+  stopQa: (job_id: string) =>
+    client
+      .post<StopTaskResponse>(`/ai/qa/${encodeURIComponent(job_id)}/stop`)
       .then((r) => r.data),
 
   /** 获取短期 RedisSaver 里的对话 */

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { evalApi } from "../api/eval";
+import { useAutoDismiss } from "../hooks/useAutoDismiss";
 import { AppShell } from "../layout/AppShell";
 import type {
   EvalDryRunPayload,
@@ -129,6 +130,7 @@ export function EvalPage() {
   const [includeClaimDetails, setIncludeClaimDetails] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  useAutoDismiss(error, setError, "");
   const [result, setResult] = useState<EvalScores | null>(null);
   const [claimDetails, setClaimDetails] = useState<unknown>(null);
   const [faithfulnessClaims, setFaithfulnessClaims] = useState<

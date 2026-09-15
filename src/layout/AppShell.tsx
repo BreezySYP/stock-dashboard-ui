@@ -1,6 +1,8 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
+import { etlApi } from "../api/etl";
 import { useAuth } from "../auth/useAuth";
+import { normalizeEtlRuns } from "../lib/etlRuns";
 import { AuthMenu } from "../components/AuthMenu";
 
 interface NavItem {
@@ -44,7 +46,13 @@ function Brand() {
   );
 }
 
-function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarNav({
+  onNavigate,
+  runningCount,
+}: {
+  onNavigate?: () => void;
+  runningCount: number;
+}) {
   const { isAdmin } = useAuth();
 
   return (
@@ -66,6 +74,11 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                 >
                   <span className="w-5 text-center">{item.icon}</span>
                   <span>{item.label}</span>
+                  {item.to === "/pipeline" && runningCount > 0 && (
+                    <span className="badge badge-warning badge-xs ml-auto">
+                      {runningCount}
+                    </span>
+                  )}
                 </NavLink>
               </li>
             ))}
@@ -95,6 +108,45 @@ export function AppShell({
   contentClassName,
 }: AppShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const { isAdmin } = useAuth();
+  const [runningCount, setRunningCount] = useState(0);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      setRunningCount(0);
+      return;
+    }
+
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const data = await etlApi.runs({ status: "running" });
+        if (cancelled) return;
+        setRunningCount(
+          normalizeEtlRuns(data).filter((run) => run.status === "running")
+            .length,
+        );
+      } catch {
+        if (!cancelled) setRunningCount(0);
+      }
+    };
+
+    void load();
+    const timer = setInterval(load, 5000);
+    const handleChange = () => void load();
+    window.addEventListener("etl:running-changed", handleChange);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      window.removeEventListener("etl:running-changed", handleChange);
+    };
+  }, [isAdmin]);
+
+  useEffect(() => {
+    document.title = runningCount
+      ? `(${runningCount}) AI 投资助手`
+      : "AI 投资助手";
+  }, [runningCount]);
 
   return (
     <div
@@ -107,7 +159,7 @@ export function AppShell({
       {/* 桌面侧边栏 */}
       <aside className="hidden w-56 shrink-0 flex-col border-r border-base-300 bg-base-100 lg:flex">
         <Brand />
-        <SidebarNav />
+        <SidebarNav runningCount={runningCount} />
       </aside>
 
       {/* 移动端抽屉 */}
@@ -119,7 +171,10 @@ export function AppShell({
           />
           <aside className="absolute left-0 top-0 flex h-full w-60 flex-col border-r border-base-300 bg-base-100">
             <Brand />
-            <SidebarNav onNavigate={() => setDrawerOpen(false)} />
+            <SidebarNav
+              runningCount={runningCount}
+              onNavigate={() => setDrawerOpen(false)}
+            />
           </aside>
         </div>
       )}

@@ -82,6 +82,7 @@ docker build -t stock-dashboard-ui .
 | `GET /api/ai/threads/{thread_id}/conversation` | 获取对话内容 |
 | `POST /api/ai/qa?thread_id=...` | 触发回答（`thread_id` 同时在 query 和 body 里） |
 | `GET /api/ai/qa/stream/{job_id}` | SSE 进度流 |
+| `POST /api/ai/qa/{job_id}/stop` | 协作式停止回答，SSE 最终推送 `status=stopped` |
 
 所有 `/api/ai/*` 接口都需要 `Authorization: Bearer`。聊天的实时进度用
 fetch + ReadableStream 读取 SSE，才能带上鉴权头（`EventSource` 无法自定义请求头）。

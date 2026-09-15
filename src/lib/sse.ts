@@ -1,5 +1,12 @@
 import { getClientToken } from "../api/client";
 
+/** 连续多久没有收到任何 SSE 网络活动时，主动停止后端任务。 */
+export const SSE_IDLE_TIMEOUT_MS = 120_000;
+
+export interface SSEEventMeta {
+  id: string | null;
+}
+
 export class SseHttpError extends Error {
   status: number;
   constructor(status: number) {
@@ -18,8 +25,11 @@ export class SseHttpError extends Error {
  */
 export async function streamSSE<T>(
   url: string,
-  onData: (data: T) => void,
-  options: { signal?: AbortSignal } = {},
+  onData: (data: T, meta: SSEEventMeta) => void,
+  options: {
+    signal?: AbortSignal;
+    onActivity?: () => void;
+  } = {},
 ): Promise<void> {
   const token = getClientToken();
   const res = await fetch(url, {
@@ -32,6 +42,7 @@ export async function streamSSE<T>(
 
   if (!res.ok) throw new SseHttpError(res.status);
   if (!res.body) return;
+  options.onActivity?.();
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -39,14 +50,16 @@ export async function streamSSE<T>(
 
   const flush = (chunk: string) => {
     // 同一事件可能有多行 data:
-    const payload = chunk
-      .split("\n")
+    const lines = chunk.split("\n");
+    const idLine = lines.find((line) => line.startsWith("id:"));
+    const eventId = idLine ? idLine.slice(3).trim() || null : null;
+    const payload = lines
       .filter((line) => line.startsWith("data:"))
       .map((line) => line.slice(5).trimStart())
       .join("\n");
     if (!payload) return;
     try {
-      onData(JSON.parse(payload) as T);
+      onData(JSON.parse(payload) as T, { id: eventId });
     } catch {
       // 非 JSON 的心跳/注释行直接忽略
     }
@@ -56,6 +69,7 @@ export async function streamSSE<T>(
     for (;;) {
       const { value, done } = await reader.read();
       if (done) break;
+      options.onActivity?.();
       buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
 
       let index = buffer.indexOf("\n\n");

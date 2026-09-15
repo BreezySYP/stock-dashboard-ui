@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
 import { etlApi } from "../api/etl";
+import { useAutoDismiss } from "../hooks/useAutoDismiss";
 import { apiErrorMessage } from "../lib/errors";
 import type { EtlStatistics as EtlStatisticsData } from "../types";
 
@@ -55,6 +56,7 @@ export function EtlStatistics() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  useAutoDismiss(error, setError, "");
 
   const load = useCallback(async () => {
     setLoading(true);

@@ -110,11 +110,18 @@ export interface SSEEvent {
   job_id: string;
   code: string;
   step: string;
-  status: "running" | "success" | "failed";
+  status: "running" | "success" | "failed" | "stopped";
   message: string;
   progress: number | null;
   done?: boolean;
   error?: string;
+}
+
+export interface StopTaskResponse {
+  job_id?: string;
+  status?: string;
+  message?: string;
+  [key: string]: unknown;
 }
 
 export interface RawCheckpoint {

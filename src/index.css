@@ -31,6 +31,37 @@ samp {
   animation: pulse 1.5s ease-in-out infinite;
 }
 
+/* 降低操作按钮的视觉重量，保留语义色但整体更柔和 */
+.btn-primary,
+.btn-secondary,
+.btn-accent,
+.btn-info,
+.btn-success,
+.btn-warning,
+.btn-error {
+  filter: saturate(0.7) brightness(1.08);
+}
+
+.btn-primary:hover,
+.btn-secondary:hover,
+.btn-accent:hover,
+.btn-info:hover,
+.btn-success:hover,
+.btn-warning:hover,
+.btn-error:hover {
+  filter: saturate(0.78) brightness(1.04);
+}
+
+.btn-primary:active,
+.btn-secondary:active,
+.btn-accent:active,
+.btn-info:active,
+.btn-success:active,
+.btn-warning:active,
+.btn-error:active {
+  filter: saturate(0.72) brightness(1);
+}
+
 @keyframes pulse {
   0%,
   100% {
